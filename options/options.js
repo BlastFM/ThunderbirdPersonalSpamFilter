@@ -190,6 +190,12 @@ async function markLogItemAsNotSpam(index) {
       messageId: item.id,
       headerMessageId: item.headerMessageId || null
     });
+    // Refresh the visible log/training lists before announcing success so
+    // the notification never appears ahead of what the user can see. The
+    // storage.onChanged listener would eventually do this too, but it fires
+    // as a separate, unordered event and previously let the "restored"
+    // status show up before the entry actually left the Detected Spam Log.
+    await loadLogs();
     showStatus('Message restored and added to AI Training Memory', 'success');
   } catch (err) {
     console.warn('Could not move physical message:', err);
@@ -203,6 +209,9 @@ async function removeFalsePositive(index) {
     const { falsePositives } = await api.storage.local.get({ falsePositives: [] });
     falsePositives.splice(index, 1);
     await api.storage.local.set({ falsePositives });
+    // See markLogItemAsNotSpam: refresh the rendered list first so the
+    // notification can't beat the visible UI update.
+    await loadLogs();
     showStatus('Training example removed from AI Training Memory', 'success');
   } catch (err) {
     showStatus('Training example could not be removed. ' + getErrorMessage(err), 'error');
@@ -320,6 +329,8 @@ document.getElementById('clearSpamLog').addEventListener('click', async () => {
 
   try {
     await api.storage.local.set({ spamLog: [], spamExamples: [] });
+    // Refresh before announcing success (see markLogItemAsNotSpam for why).
+    await loadLogs();
     showStatus('Detected Spam Log cleared', 'success');
   } catch (err) {
     showStatus('Detected Spam Log could not be cleared. ' + getErrorMessage(err), 'error');
@@ -336,6 +347,8 @@ document.getElementById('clearFPLog').addEventListener('click', async () => {
 
   try {
     await api.storage.local.set({ falsePositives: [] });
+    // Refresh before announcing success (see markLogItemAsNotSpam for why).
+    await loadLogs();
     showStatus('AI Training Memory cleared', 'success');
   } catch (err) {
     showStatus('AI Training Memory could not be cleared. ' + getErrorMessage(err), 'error');
