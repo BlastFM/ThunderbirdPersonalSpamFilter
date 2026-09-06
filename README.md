@@ -297,6 +297,8 @@ Privacy Note: Transmitted email content includes the sender address, subject lin
 
 ### [v1.4.7] - 2026-09-06 (Stable)
 
+* Fixed "Mark as Not Spam" from the Detected Spam Log silently failing to move the message back to its original folder or record it in Active AI Training Memory. Thunderbird reassigns a message's internal id every time it is moved (and the id does not survive a restart), so the log's stored id was already stale by the time it was moved into the spam folder. The message is now re-resolved by its stable RFC822 Message-ID header before acting on it.
+
 ### [v1.4.6] - 2026-09-06 (Stable)
 
 * Updated the options page footer to display the currently installed version number (read live from the manifest) and removed the "at this time" qualifier from the free-of-charge notice.
