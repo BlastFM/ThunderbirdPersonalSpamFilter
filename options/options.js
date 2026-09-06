@@ -273,7 +273,7 @@ document.getElementById('testKey').addEventListener('click', async () => {
   }
 });
 
-function requestClearConfirmation(title, message) {
+function requestClearConfirmation(title, message, confirmText = 'Clear entries') {
   const dialog = document.getElementById('confirmDialog');
   const titleElement = document.getElementById('confirmDialogTitle');
   const messageElement = document.getElementById('confirmDialogMessage');
@@ -283,12 +283,14 @@ function requestClearConfirmation(title, message) {
 
   titleElement.textContent = title;
   messageElement.textContent = message;
+  confirmButton.textContent = confirmText;
   dialog.classList.remove('hidden');
   confirmButton.focus();
 
   return new Promise(resolve => {
     const close = confirmed => {
       dialog.classList.add('hidden');
+      confirmButton.textContent = 'Clear entries';
       confirmButton.removeEventListener('click', confirmAction);
       cancelButton.removeEventListener('click', cancelAction);
       backdrop.removeEventListener('click', cancelAction);
@@ -366,9 +368,10 @@ function setupBackupHandlers() {
 
   if (exportBtn) {
     exportBtn.addEventListener('click', async () => {
-      const confirmed = confirm(
-        "This backup will contain your OpenAI API key in PLAIN TEXT, " +
-        "along with your rules, spam log, and training data. Continue?"
+      const confirmed = await requestClearConfirmation(
+        'Export backup?',
+        'This backup will contain your OpenAI API key in plain text, along with your rules, spam log, and training data. Continue?',
+        'Export backup'
       );
       if (!confirmed) return;
 
