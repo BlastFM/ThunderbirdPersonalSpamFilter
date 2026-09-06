@@ -406,6 +406,26 @@ async function classifyEmailWithOpenAI({ author, subject, body, apiKey, model, c
   }
 }
 
+async function clearSourceFolderSelection(folderId) {
+  if (!folderId || !messenger.mailTabs || !messenger.tabs) return;
+
+  const mailTabs = await messenger.tabs.query({ type: "mail" });
+  await Promise.all(mailTabs.map(async tab => {
+    try {
+      const selectedFolder = await messenger.mailTabs.getSelectedFolder(tab.id);
+      if (selectedFolder && selectedFolder.id === folderId) {
+        await messenger.mailTabs.setSelectedMessages(tab.id, []);
+      }
+    } catch (err) {
+      // A mail tab can close while asynchronous classification is running.
+      console.warn(
+        `[Thunderbird OpenAI Spam Detector] Could not clear selection in mail tab ${tab.id}:`,
+        err
+      );
+    }
+  }));
+}
+
 async function handleSpamMessage(messageHeader, fullBody, destinationOverride = null) {
   const { spamLog = [] } = await messenger.storage.local.get(['spamLog']);
   const { targetFolder } = await messenger.storage.sync.get({ targetFolder: 'trash' });
@@ -464,6 +484,7 @@ async function handleSpamMessage(messageHeader, fullBody, destinationOverride = 
     );
     const updatedLog = [newEntry, ...dedupedLog].slice(0, 50);
     await messenger.storage.local.set({ spamLog: updatedLog });
+    await clearSourceFolderSelection(messageHeader.folder.id);
   } catch (err) {
     console.error("[Thunderbird OpenAI Spam Detector] Could not move email to target spam folder:", err);
     throw err;
