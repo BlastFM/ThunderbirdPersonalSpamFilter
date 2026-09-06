@@ -185,7 +185,11 @@ async function markLogItemAsNotSpam(index) {
   // lands back in the origin folder. Duplicating that bookkeeping here
   // previously caused the log entry to be recorded twice.
   try {
-    await api.runtime.sendMessage({ action: 'restoreMessage', messageId: item.id });
+    await api.runtime.sendMessage({
+      action: 'restoreMessage',
+      messageId: item.id,
+      headerMessageId: item.headerMessageId || null
+    });
     showStatus('Message restored and added to AI Training Memory', 'success');
   } catch (err) {
     console.warn('Could not move physical message:', err);

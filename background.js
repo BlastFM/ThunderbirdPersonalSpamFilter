@@ -80,7 +80,7 @@ messenger.runtime.onStartup.addListener(() => {
 // folder-resolution + tracked-move logic instead of re-implementing it.
 messenger.runtime.onMessage.addListener((request) => {
   if (request && request.action === 'restoreMessage' && request.messageId) {
-    return manualMarkAsNotSpam(request.messageId);
+    return manualMarkAsNotSpam(request.messageId, request.headerMessageId);
   }
 });
 
@@ -120,7 +120,7 @@ messenger.menus.onClicked.addListener(async (info, tab) => {
         const bodyText = await getPlainTextBodyForAction(message.id);
         await handleSpamMessage(fullMessage, bodyText, 'local_ai_spam');
       } else if (info.menuItemId === "mark-as-not-spam") {
-        await manualMarkAsNotSpam(message.id);
+        await manualMarkAsNotSpam(message.id, message.headerMessageId);
       }
     } catch (err) {
       console.error(
@@ -470,16 +470,41 @@ async function handleSpamMessage(messageHeader, fullBody, destinationOverride = 
   }
 }
 
-async function manualMarkAsNotSpam(messageId) {
+// Thunderbird's numeric MessageHeader.id is not a stable identifier: it is
+// reassigned every time a message is moved to a different folder (and does
+// not survive a Thunderbird restart either). Spam log entries are acted on
+// well after the message they describe was moved into the spam folder, so
+// the id recorded at detection time is expected to be stale by the time
+// "Mark as Not Spam" runs against it -- looking it up with that id would
+// silently fail to find the message (and thus never move/log anything).
+// The RFC822 Message-ID header does not change across moves, so prefer
+// resolving the message via messages.query({ headerMessageId }) whenever
+// we have one, and only fall back to the possibly-stale id.
+async function resolveCurrentMessage(messageId, headerMessageId) {
+  if (headerMessageId) {
+    try {
+      const result = await messenger.messages.query({ headerMessageId });
+      if (result && result.messages && result.messages.length > 0) {
+        return result.messages[0];
+      }
+    } catch (err) {
+      console.warn("[Thunderbird OpenAI Spam Detector] headerMessageId lookup failed, falling back to stored id:", err);
+    }
+  }
+  return messenger.messages.get(messageId);
+}
+
+async function manualMarkAsNotSpam(messageId, headerMessageId = null) {
   try {
-    const messageHeader = await messenger.messages.get(messageId);
-    const bodyText = await getPlainTextBodyForAction(messageId);
+    const messageHeader = await resolveCurrentMessage(messageId, headerMessageId);
+    const bodyText = await getPlainTextBodyForAction(messageHeader.id);
 
     const { spamLog = [], falsePositives = [] } =
       await messenger.storage.local.get(['spamLog', 'falsePositives']);
 
     const logItem = spamLog.find(item =>
       item.id === messageId ||
+      item.id === messageHeader.id ||
       (messageHeader.headerMessageId &&
         item.headerMessageId === messageHeader.headerMessageId)
     );
@@ -519,7 +544,7 @@ async function manualMarkAsNotSpam(messageId) {
       throw new Error("No destination folder was found for restoring the message.");
     }
 
-    await moveMessageTracked(messageId, targetFolder);
+    await moveMessageTracked(messageHeader.id, targetFolder);
 
     // Only update training history after Thunderbird confirms the restore.
     await messenger.storage.local.set({
