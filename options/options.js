@@ -373,9 +373,10 @@ function setupBackupHandlers() {
         const syncData = await api.storage.sync.get(null);
         const localData = await api.storage.local.get(null);
         const { apiKey, ...logsAndTraining } = localData;
+        const manifestVersion = api.runtime && api.runtime.getManifest ? api.runtime.getManifest().version : '1.4.6';
 
         const fullBackup = {
-          version: "1.3.3",
+          version: manifestVersion,
           exportedAt: new Date().toISOString(),
           type: "full_backup",
           settings: syncData,

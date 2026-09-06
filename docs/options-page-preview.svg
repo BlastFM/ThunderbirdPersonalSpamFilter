@@ -48,5 +48,5 @@
   <text x="596" y="592" font-family="Segoe UI,Arial,sans-serif" font-size="20" font-weight="700" fill="#162a36">Active AI Training Memory (Not Spam)</text>
   <rect x="1014" y="570" width="172" height="36" rx="18" fill="#fff" stroke="#d75946"/><text x="1100" y="593" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="12" font-weight="700" fill="#c34839">× Clear memory</text>
   <text x="891" y="680" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="14" fill="#687984">No false positives recorded.</text>
-  <text x="640" y="825" font-family="Segoe UI,Arial,sans-serif" font-size="12" fill="#687984">OpenAI Spam Detector is offered FREE by </text><text x="871" y="825" font-family="Segoe UI,Arial,sans-serif" font-size="12" font-weight="700" fill="#162a36">BlastFM Limited</text><text x="976" y="825" font-family="Segoe UI,Arial,sans-serif" font-size="12" fill="#687984"> at this time.</text>
+  <text x="640" y="825" font-family="Segoe UI,Arial,sans-serif" font-size="12" fill="#687984">OpenAI Spam Detector 1.4.6 is offered FREE by </text><text x="1034" y="825" font-family="Segoe UI,Arial,sans-serif" font-size="12" font-weight="700" fill="#162a36">BlastFM Limited</text><text x="1160" y="825" font-family="Segoe UI,Arial,sans-serif" font-size="12" fill="#687984">.</text>
 </svg>

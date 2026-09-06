@@ -7,11 +7,11 @@
 
 An AI-powered spam detection and training extension for Mozilla Thunderbird. **OpenAI Spam Detector** utilizes OpenAI's Chat Completions API (such as `gpt-4o-mini` and `gpt-4o`) to classify incoming emails, move unwanted messages to your deleted folder automatically, and continuously adapt to your preferences via few-shot context learning.
 
-This add-on is offered **FREE by BlastFM Limited at this time**. OpenAI API usage may incur separate charges from OpenAI.
+This add-on is offered **FREE by BlastFM Limited**. OpenAI API usage may incur separate charges from OpenAI.
 
 ---
 
-Release Date: September 5, 2026
+Release Date: September 6, 2026
 
 Compatibility: Thunderbird 128.0+ (Manifest V3)
 
