@@ -196,7 +196,8 @@ async function processIncomingMessages(messageList) {
   const blockedPatterns = blacklist.split(',').map(d => d.trim()).filter(Boolean);
 
   const activeModel = model || 'gpt-4o-mini';
-  const { falsePositives } = await messenger.storage.local.get({ falsePositives: [] });
+  const { falsePositives, spamLog: confirmedSpamLog } =
+    await messenger.storage.local.get({ falsePositives: [], spamLog: [] });
 
   const resolvedTargetFolder = targetFolder || 'trash';
   // Cache the resolved spam destination per account for this batch. This
@@ -253,7 +254,8 @@ async function processIncomingMessages(messageList) {
         apiKey,
         model: activeModel,
         customPrompt,
-        falsePositives
+        falsePositives,
+        confirmedSpam: confirmedSpamLog
       });
 
       if (isSpam) {
@@ -363,14 +365,25 @@ function stripHtmlTags(str) {
     .trim();
 }
 
-async function classifyEmailWithOpenAI({ author, subject, body, apiKey, model, customPrompt, falsePositives }) {
+async function classifyEmailWithOpenAI({ author, subject, body, apiKey, model, customPrompt, falsePositives, confirmedSpam }) {
   let fpContext = "";
   if (falsePositives && falsePositives.length > 0) {
+    // Most-recent examples are the most relevant training signal, and
+    // capping the count keeps the prompt (and token cost) bounded even
+    // though storage can hold up to 50 entries.
+    const recentFalsePositives = falsePositives.slice(0, 20);
     fpContext = "\n\nCRITICAL OVERRIDE RULE - The user marked these similar emails as NOT SPAM. Treat emails with similar patterns as HAM:\n" +
-      falsePositives.map(fp => `- From: "${fp.author}", Subject: "${fp.subject}"`).join("\n");
+      recentFalsePositives.map(fp => `- From: "${fp.author}", Subject: "${fp.subject}"`).join("\n");
   }
 
-  const systemPrompt = `You are an expert email spam classifier running inside Thunderbird. Analyze the email and respond strictly with JSON: {"isSpam": true} or {"isSpam": false}. Do not include markdown formatting or commentary.${fpContext}${customPrompt ? `\n\nCustom User Rules:\n${customPrompt}` : ""}`;
+  let spamContext = "";
+  if (confirmedSpam && confirmedSpam.length > 0) {
+    const recentConfirmedSpam = confirmedSpam.slice(0, 20);
+    spamContext = "\n\nThe user previously confirmed these emails as SPAM. Treat emails with similar senders, subjects, or patterns as SPAM too:\n" +
+      recentConfirmedSpam.map(entry => `- From: "${entry.author}", Subject: "${entry.subject}"`).join("\n");
+  }
+
+  const systemPrompt = `You are an expert email spam classifier running inside Thunderbird. Analyze the email and respond strictly with JSON: {"isSpam": true} or {"isSpam": false}. Do not include markdown formatting or commentary.${spamContext}${fpContext}${customPrompt ? `\n\nCustom User Rules:\n${customPrompt}` : ""}`;
 
   const userContent = `From: ${author}\nSubject: ${subject}\nBody Snippet:\n${body}`;
 
