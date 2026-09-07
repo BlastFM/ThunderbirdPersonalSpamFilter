@@ -1,6 +1,6 @@
 # OpenAI Spam Detector for Thunderbird
 
-![Extension Version](https://img.shields.io/badge/version-1.4.15-blue.svg)
+![Extension Version](https://img.shields.io/badge/version-1.4.16-blue.svg)
 ![Thunderbird](https://img.shields.io/badge/Thunderbird-115.0%2B-58A6FF.svg?logo=thunderbird&logoColor=white)
 ![Manifest Version](https://img.shields.io/badge/manifest-v3-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-brightgreen.svg)
@@ -15,7 +15,7 @@ Release Date: September 6, 2026
 
 Compatibility: Thunderbird 128.0+ (Manifest V3)
 
-**v1.4.15 is the current stable release**, verified to automatically scan and correctly route new messages (including those arriving in the Junk folder) and to restore manual "Mark as Spam (Train AI)" / "Mark as Not Spam" actions on current Thunderbird MV3 builds. It also feeds the Detected Spam Log back into future AI classification, alongside the existing AI Training Memory (Not Spam) examples.
+**v1.4.16 is the current stable release**, verified to automatically scan and correctly route new messages (including those arriving in the Junk folder) and to restore manual "Mark as Spam (Train AI)" / "Mark as Not Spam" actions on current Thunderbird MV3 builds. It also feeds the Detected Spam Log back into future AI classification, alongside the existing AI Training Memory (Not Spam) examples.
 
 This release adds a redesigned options interface with clearer action grouping, stronger status cues, and more distinct backup and destructive controls. The header now identifies BlastFM Limited, states that the add-on is currently free, and dynamically reports save status. It also includes the reliability and packaging fixes from v1.3.4.
 
@@ -34,8 +34,8 @@ Full backup and restore controls are provided in the Detected Spam Log panel. A 
 The options page now provides clearer progress, validation, success, and error messages for settings, OpenAI connection tests, spam logs, AI training memory, and backup actions. All of these messages use the dynamic header status indicator rather than a separate floating confirmation. Status and error announcements use accessible live-region behavior for assistive technology.
 
 🔍 Checksum (Integrity Verification)  
-Filename: openai-spam-detector-v1.4.15.xpi
-### SHA-256: `50F8D401C5C847F9BD539FC9BCD88E711BBF34C3C639517318A2558AA0539C34`
+Filename: openai-spam-detector-v1.4.16.xpi
+### SHA-256: `E76BFB23CCAC8B6A051EB5D274F047F247F4360026F34FEE7D21DD50027CFF9E`
 
 ### Configuration Options
 
@@ -48,46 +48,13 @@ Open the Extension Options page (`Tools > Add-ons & Themes > Options`) to config
 | **Spam Action Destination** | Target folder where flagged spam is routed (`Trash`, `Account Junk`, or `Local Folders / AI Filtered Spam`). |
 | **Custom Rules** | Text prompt to add strict user rules (e.g., *Always mark newsletters from domain.com as HAM*). |
 
-### Suggested Custom Classification Prompt Rules
+### Conservative Classification Policy Import
 
-The following rules can be pasted into **Custom Rules** to provide a consistent, conservative classification policy:
+The recommended conservative classification policy is provided as a downloadable JSON file instead of being printed inline in this README:
 
-```text
-Classify each email as exactly one of: SPAM or HAM, expressed only via the required JSON output format.
+[Download conservative-classification-policy.json](https://raw.githubusercontent.com/BlastFM/ThunderbirdPersonalSpamFilter/main/docs/conservative-classification-policy.json)
 
-Follow these rules in order:
-
-1. Return SPAM for unsolicited bulk email, phishing, scams, fraud, malware, malicious attachments, or deceptive messages.
-2. Return SPAM for messages impersonating banks, payment providers, government agencies, delivery companies, employers, online services or other trusted organisations when the message appears suspicious.
-3. Return SPAM for requests to provide passwords, verification codes, security answers, payment details, banking information, cryptocurrency, gift cards, or remote computer access when the request is unexpected or suspicious.
-4. Return SPAM for fake invoices, fake receipts, fraudulent subscriptions, renewal scams, refund scams, prize notifications, casinos, investment scams, employment scams, romance scams, and similar social-engineering attempts.
-5. Return SPAM when the message uses urgent pressure, threats, fear, secrecy, unusually attractive rewards, account suspension warnings, or deadlines to force the recipient to act.
-6. Return SPAM when links appear misleading, shortened, unrelated to the claimed sender, misspelled, suspicious, or designed to imitate a legitimate domain.
-7. Return SPAM when the sender address, reply-to address, display name, domain, or message content suggests spoofing or impersonation.
-8. Return SPAM when an attachment is unexpected, suspicious, executable, macro-enabled, password-protected without a clear reason, or likely to contain malware.
-9. Return SPAM when the message is clearly unsolicited advertising, mass promotion, or bulk marketing that the recipient did not request.
-10. Return SPAM when the message contains highly repetitive, nonsensical, automatically generated, or irrelevant content typical of bulk spam.
-11. Return HAM for legitimate personal correspondence and expected messages from known contacts.
-12. Return HAM for legitimate receipts, invoices, order confirmations, shipping notices, appointment reminders, account notifications, and service updates that match the recipient's normal activity.
-13. Return HAM for newsletters, mailing lists, promotions, and advertisements when they appear legitimate, are relevant, and include normal unsubscribe or preference-management options.
-14. Do not classify a message as SPAM solely because it is an advertisement, newsletter, HTML email, contains tracking links, includes an unsubscribe link, comes from an unfamiliar sender, or uses promotional language.
-15. Do not classify a message as SPAM solely because the sender uses a free email provider or because the message contains spelling or formatting mistakes.
-16. Consider the sender, reply-to address, recipient, subject, body, links, attachments, branding, timing, and overall context together.
-17. Give greater weight to clear evidence of deception, credential theft, fraud, malware, or impersonation than to appearance, formatting, or unfamiliarity alone.
-18. If the message is ambiguous and there is no strong evidence of spam, classify it as HAM to reduce false positives.
-19. Never reveal or explain the classification reasoning, confidence scores, or any additional commentary in the result.
-20. Strictly follow the required output format specified in the system instructions (a single JSON object such as {"isSpam": true} or {"isSpam": false}); a SPAM decision means isSpam is true and a HAM decision means isSpam is false. Do not add markdown, labels, or any text outside that JSON object.
-21. Treat visible sender names, logos, signatures, and branding as weak evidence unless they match the actual sender domain and reply-to address.
-22. Treat a message as SPAM when the sender domain, reply-to domain, link destination, or attachment source conflicts with the organisation being claimed, unless the mismatch is clearly explained by a known legitimate service provider.
-23. Treat messages using lookalike characters, excessive spacing, unusual punctuation, deliberate misspellings, hidden text, or image-only content to evade filtering as SPAM when they also contain a suspicious offer, request, or link.
-24. Treat unsolicited messages offering remote technical support, refunds, account recovery, investment opportunities, debt relief, employment, prizes, or cryptocurrency services as SPAM when the recipient did not recently request that service.
-25. Treat unsolicited bulk messages as SPAM even when they include an unsubscribe link if the sender identity, offer, link destination, or recipient context appears deceptive.
-26. Do not classify a legitimate recurring notification as SPAM solely because it contains a login link, tracking link, automated wording, or a third-party delivery provider, provided the sender, domain, recipient context, and request are consistent.
-27. When a message matches a known false-positive example, prefer HAM unless there is new, specific evidence of phishing, fraud, malware, impersonation, or another serious threat.
-28. Do not treat a message as SPAM solely because it was delivered to the Junk folder; classify its contents and context independently.
-29. If the message contains no meaningful content or the available content is insufficient to assess it reliably, return HAM unless the sender or subject provides clear evidence of spam.
-```
-
+To use it, download the file, open the extension Options page, click **Import backup**, and choose `conservative-classification-policy.json`. The import updates only **Custom Classification Prompt Rules**; it does not replace your API key, whitelist, blacklist, spam log, or AI Training Memory.
 #### Using the Dedicated Local Spam Folder
 To keep AI-detected spam isolated from server-synced folders:
 1. Open Extension Settings and set **Spam Action Destination** to `Local Folders / AI Filtered Spam`.
@@ -144,22 +111,22 @@ Restore success is reported only after storage writes and the log refresh comple
 
 Install [Mozilla Thunderbird](https://www.thunderbird.net/) first, then install the OpenAI Spam Detector extension from the release asset below.
 
-[![Download Release](https://img.shields.io/badge/Download-v1.4.15_.XPI-blue?style=for-the-badge&logo=thunderbird&logoColor=white)](https://github.com/BlastFM/ThunderbirdPersonalSpamFilter/releases/download/v1.4.15/openai-spam-detector-v1.4.15.xpi)
+[![Download Release](https://img.shields.io/badge/Download-v1.4.16_.XPI-blue?style=for-the-badge&logo=thunderbird&logoColor=white)](https://github.com/BlastFM/ThunderbirdPersonalSpamFilter/releases/download/v1.4.16/openai-spam-detector-v1.4.16.xpi)
 [![Get Latest Release](https://img.shields.io/github/v/release/BlastFM/ThunderbirdPersonalSpamFilter?color=green&label=Latest%20Release&style=for-the-badge)](https://github.com/BlastFM/ThunderbirdPersonalSpamFilter/releases/latest)
 
 ### Direct Downloads
 
 | Asset | Description | Download Link |
 | :--- | :--- | :--- |
-| **Extension Binary** | Ready-to-install Thunderbird Add-on | [`openai-spam-detector-v1.4.15.xpi`](https://github.com/BlastFM/ThunderbirdPersonalSpamFilter/releases/download/v1.4.15/openai-spam-detector-v1.4.15.xpi) |
-| **Source Code** | Compressed source files (`.zip`) | [`Source code (zip)`](https://github.com/BlastFM/ThunderbirdPersonalSpamFilter/archive/refs/tags/v1.4.15.zip) |
+| **Extension Binary** | Ready-to-install Thunderbird Add-on | [`openai-spam-detector-v1.4.16.xpi`](https://github.com/BlastFM/ThunderbirdPersonalSpamFilter/releases/download/v1.4.16/openai-spam-detector-v1.4.16.xpi) |
+| **Source Code** | Compressed source files (`.zip`) | [`Source code (zip)`](https://github.com/BlastFM/ThunderbirdPersonalSpamFilter/archive/refs/tags/v1.4.16.zip) |
 
 ---
 
 ### How to Install in Thunderbird
 
 1. Download and install [Mozilla Thunderbird](https://www.thunderbird.net/) if it is not already installed.
-2. Click the extension download button above to save **`openai-spam-detector-v1.4.15.xpi`**.
+2. Click the extension download button above to save **`openai-spam-detector-v1.4.16.xpi`**.
 3. Open Thunderbird and navigate to **Add-ons and Themes** (`Ctrl+Shift+A` or `Cmd+Shift+A`).
 4. Click the gear icon (**Tools for all add-ons**) in the top-right corner.
 5. Select **Install Add-on From File...** and choose the downloaded `.xpi` file.
@@ -178,12 +145,16 @@ ThunderbirdPersonalSpamFilter/
 ├── manifest.json
 ├── background.js
 ├── docs/
+│   ├── conservative-classification-policy.json
 │   ├── options-page-current.png
 │   └── options-page-populated.png
 ├── README.md
-├── openai-spam-detector-v1.4.15.xpi
+├── openai-spam-detector-v1.4.16.xpi
 ├── icons/
+│   ├── icon-16.png
+│   ├── icon-32.png
 │   ├── icon-48.png
+│   ├── icon-128.png
 │   ├── ThunderbirdPersonalSpamFilter.png
 │   ├── not-spam-green.png
 │   └── spam-red.png
@@ -277,6 +248,11 @@ Host Permission (https://api.openai.com/*): Required to transmit snippet data to
 Privacy Note: Transmitted email content includes the sender address, subject line, and up to the first 1,500 characters of the body text. Data is processed according to OpenAI's Data Usage Policies. No data is sent to intermediate third-party servers.
 
 ## Release History
+
+### [v1.4.16] - 2026-09-07 (Stable)
+
+* Moved the recommended conservative classification policy out of the README's inline text and into docs/conservative-classification-policy.json, which can be downloaded and imported through the Options page. Importing this policy updates only Custom Classification Prompt Rules, leaving API keys, whitelist/blacklist settings, logs, and training memory untouched.
+* Added size-specific manifest icons (icon-16.png, icon-32.png, icon-48.png, icon-128.png) instead of pointing every manifest icon slot at the same large source image, improving display in small Thunderbird chrome/add-on panes.
 
 ### [v1.4.15] - 2026-09-06 (Stable)
 

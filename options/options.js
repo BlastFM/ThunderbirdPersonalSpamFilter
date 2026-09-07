@@ -415,6 +415,14 @@ function setupBackupHandlers() {
   if (importFileInput) {
     importFileInput.addEventListener('change', (e) => {
       handleImportFile(e, async (importedData, api) => {
+        if (importedData.type === "classification_policy" && typeof importedData.customPrompt === "string") {
+          await api.storage.sync.set({ customPrompt: importedData.customPrompt });
+          document.getElementById('customPrompt').value = importedData.customPrompt;
+          settingsDirty = false;
+          showStatus("Classification policy imported. New messages will use these custom rules", "success");
+          return;
+        }
+
         if (importedData.settings) {
           // Back-compat: older backups put apiKey inside "settings".
           const hasLegacyApiKey = Object.prototype.hasOwnProperty.call(importedData.settings, 'apiKey');
