@@ -567,6 +567,48 @@ textarea {
   font-weight: 700;
 }
 
+.footer-support {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-color);
+}
+
+.footer-support-text {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.donate-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.donate-link:hover,
+.donate-link:focus-visible {
+  color: #0070ba;
+  border-color: #0070ba;
+  background-color: rgba(0, 112, 186, 0.06);
+}
+
+.donate-icon {
+  font-size: 0.85rem;
+}
+
 .confirm-dialog {
   position: fixed;
   inset: 0;
