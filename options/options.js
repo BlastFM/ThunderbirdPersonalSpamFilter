@@ -31,7 +31,42 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupBackupHandlers();
   setupDynamicSaveStatus();
   renderFooterVersion(api);
+  setupColumnHeightSync();
 });
+
+// --- COLUMN HEIGHT SYNC ---
+// Keeps the Activity column (spam log / training memory) the same height
+// as the Settings column, so its two scrollable log lists can fill that
+// height and scroll internally instead of growing without bound and
+// stretching the Settings column to match (which happened when relying
+// purely on CSS grid stretch + flex-grow with many log entries).
+function setupColumnHeightSync() {
+  const settingsCard = document.querySelector('.configuration-card');
+  const activityCard = document.querySelector('.activity-card');
+  if (!settingsCard || !activityCard) return;
+
+  const syncHeights = () => {
+    // Reset first so we measure the Settings column's natural height,
+    // not a height inflated by a previous sync.
+    activityCard.style.height = '';
+    const settingsHeight = settingsCard.offsetHeight;
+    if (settingsHeight > 0) {
+      activityCard.style.height = `${settingsHeight}px`;
+    }
+  };
+
+  syncHeights();
+  window.addEventListener('resize', syncHeights);
+
+  // Re-sync when the Settings column's own height changes: its content
+  // reflows on window resize, and the Custom Classification Prompt Rules
+  // textarea is user-resizable (drag its lower edge), both of which can
+  // change its natural height without a window resize event firing.
+  if (typeof ResizeObserver !== 'undefined') {
+    const observer = new ResizeObserver(() => syncHeights());
+    observer.observe(settingsCard);
+  }
+}
 
 // Reads the installed version straight from the manifest so the footer
 // never drifts out of sync with an actual release.

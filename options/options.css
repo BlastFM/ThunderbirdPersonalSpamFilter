@@ -381,12 +381,12 @@ textarea {
 
 .log-container {
   min-height: 120px;
-  max-height: none;
+  max-height: 360px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  flex: 1 1 auto;
+  flex: 1 1 0;
 }
 
 /* Log Entry Card Items */
