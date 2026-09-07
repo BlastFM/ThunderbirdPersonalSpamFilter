@@ -158,6 +158,13 @@ ThunderbirdPersonalSpamFilter/
 │   ├── not-spam-green.png
 │   └── spam-red.png
 └── options/
+    ├── icons/
+    │   ├── icon-16.png
+    │   ├── icon-32.png
+    │   ├── icon-48.png
+    │   ├── icon-128.png
+    │   ├── not-spam-green.png
+    │   └── spam-red.png
     ├── options.css
     ├── options.html
     ├── options.js
