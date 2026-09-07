@@ -93,7 +93,7 @@ async function notifyActionFailure(title, err) {
   try {
     await messenger.notifications.create({
       type: "basic",
-      iconUrl: "icons/ThunderbirdPersonalSpamFilter.png",
+      iconUrl: "icons/icon-128.png",
       title,
       message: (err && err.message) || "An unknown error occurred. See the Error Console for details"
     });

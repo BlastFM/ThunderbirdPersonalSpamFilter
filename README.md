@@ -1,6 +1,6 @@
 # OpenAI Spam Detector for Thunderbird
 
-![Extension Version](https://img.shields.io/badge/version-1.4.16-blue.svg)
+![Extension Version](https://img.shields.io/badge/version-1.4.17-blue.svg)
 ![Thunderbird](https://img.shields.io/badge/Thunderbird-115.0%2B-58A6FF.svg?logo=thunderbird&logoColor=white)
 ![Manifest Version](https://img.shields.io/badge/manifest-v3-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-brightgreen.svg)
@@ -15,7 +15,7 @@ Release Date: September 6, 2026
 
 Compatibility: Thunderbird 128.0+ (Manifest V3)
 
-**v1.4.16 is the current stable release**, verified to automatically scan and correctly route new messages (including those arriving in the Junk folder) and to restore manual "Mark as Spam (Train AI)" / "Mark as Not Spam" actions on current Thunderbird MV3 builds. It also feeds the Detected Spam Log back into future AI classification, alongside the existing AI Training Memory (Not Spam) examples.
+**v1.4.17 is the current stable release**, verified to automatically scan and correctly route new messages (including those arriving in the Junk folder) and to restore manual "Mark as Spam (Train AI)" / "Mark as Not Spam" actions on current Thunderbird MV3 builds. It also feeds the Detected Spam Log back into future AI classification, alongside the existing AI Training Memory (Not Spam) examples.
 
 This release adds a redesigned options interface with clearer action grouping, stronger status cues, and more distinct backup and destructive controls. The header now identifies BlastFM Limited, states that the add-on is currently free, and dynamically reports save status. It also includes the reliability and packaging fixes from v1.3.4.
 
@@ -34,8 +34,8 @@ Full backup and restore controls are provided in the Detected Spam Log panel. A 
 The options page now provides clearer progress, validation, success, and error messages for settings, OpenAI connection tests, spam logs, AI training memory, and backup actions. All of these messages use the dynamic header status indicator rather than a separate floating confirmation. Status and error announcements use accessible live-region behavior for assistive technology.
 
 🔍 Checksum (Integrity Verification)  
-Filename: openai-spam-detector-v1.4.16.xpi
-### SHA-256: `E76BFB23CCAC8B6A051EB5D274F047F247F4360026F34FEE7D21DD50027CFF9E`
+Filename: openai-spam-detector-v1.4.17.xpi
+### SHA-256: `B9F4CDB5DA527E2EBF80B6568DB5D9B9AE7CA82E1C6995F42DBDC93D2F6C0DEC`
 
 ### Configuration Options
 
@@ -111,22 +111,22 @@ Restore success is reported only after storage writes and the log refresh comple
 
 Install [Mozilla Thunderbird](https://www.thunderbird.net/) first, then install the OpenAI Spam Detector extension from the release asset below.
 
-[![Download Release](https://img.shields.io/badge/Download-v1.4.16_.XPI-blue?style=for-the-badge&logo=thunderbird&logoColor=white)](https://github.com/BlastFM/ThunderbirdPersonalSpamFilter/releases/download/v1.4.16/openai-spam-detector-v1.4.16.xpi)
+[![Download Release](https://img.shields.io/badge/Download-v1.4.17_.XPI-blue?style=for-the-badge&logo=thunderbird&logoColor=white)](https://github.com/BlastFM/ThunderbirdPersonalSpamFilter/releases/download/v1.4.17/openai-spam-detector-v1.4.17.xpi)
 [![Get Latest Release](https://img.shields.io/github/v/release/BlastFM/ThunderbirdPersonalSpamFilter?color=green&label=Latest%20Release&style=for-the-badge)](https://github.com/BlastFM/ThunderbirdPersonalSpamFilter/releases/latest)
 
 ### Direct Downloads
 
 | Asset | Description | Download Link |
 | :--- | :--- | :--- |
-| **Extension Binary** | Ready-to-install Thunderbird Add-on | [`openai-spam-detector-v1.4.16.xpi`](https://github.com/BlastFM/ThunderbirdPersonalSpamFilter/releases/download/v1.4.16/openai-spam-detector-v1.4.16.xpi) |
-| **Source Code** | Compressed source files (`.zip`) | [`Source code (zip)`](https://github.com/BlastFM/ThunderbirdPersonalSpamFilter/archive/refs/tags/v1.4.16.zip) |
+| **Extension Binary** | Ready-to-install Thunderbird Add-on | [`openai-spam-detector-v1.4.17.xpi`](https://github.com/BlastFM/ThunderbirdPersonalSpamFilter/releases/download/v1.4.17/openai-spam-detector-v1.4.17.xpi) |
+| **Source Code** | Compressed source files (`.zip`) | [`Source code (zip)`](https://github.com/BlastFM/ThunderbirdPersonalSpamFilter/archive/refs/tags/v1.4.17.zip) |
 
 ---
 
 ### How to Install in Thunderbird
 
 1. Download and install [Mozilla Thunderbird](https://www.thunderbird.net/) if it is not already installed.
-2. Click the extension download button above to save **`openai-spam-detector-v1.4.16.xpi`**.
+2. Click the extension download button above to save **`openai-spam-detector-v1.4.17.xpi`**.
 3. Open Thunderbird and navigate to **Add-ons and Themes** (`Ctrl+Shift+A` or `Cmd+Shift+A`).
 4. Click the gear icon (**Tools for all add-ons**) in the top-right corner.
 5. Select **Install Add-on From File...** and choose the downloaded `.xpi` file.
@@ -149,13 +149,12 @@ ThunderbirdPersonalSpamFilter/
 │   ├── options-page-current.png
 │   └── options-page-populated.png
 ├── README.md
-├── openai-spam-detector-v1.4.16.xpi
+├── openai-spam-detector-v1.4.17.xpi
 ├── icons/
 │   ├── icon-16.png
 │   ├── icon-32.png
 │   ├── icon-48.png
 │   ├── icon-128.png
-│   ├── ThunderbirdPersonalSpamFilter.png
 │   ├── not-spam-green.png
 │   └── spam-red.png
 └── options/
@@ -249,6 +248,10 @@ Privacy Note: Transmitted email content includes the sender address, subject lin
 
 ## Release History
 
+### [v1.4.17] - 2026-09-07 (Stable)
+
+* Fixed the options-page header logo used by browser/Pick & Polish-style previews by switching it from the oversized 500px source artwork to the optimized icons/icon-128.png asset. The notification icon now uses the same optimized 128px file, and the no-longer-referenced 500px source image was removed from the package.
+
 ### [v1.4.16] - 2026-09-07 (Stable)
 
 * Moved the recommended conservative classification policy out of the README's inline text and into docs/conservative-classification-policy.json, which can be downloaded and imported through the Options page. Importing this policy updates only Custom Classification Prompt Rules, leaving API keys, whitelist/blacklist settings, logs, and training memory untouched.
@@ -336,7 +339,7 @@ ot-spam-green.svg) that were no longer referenced anywhere in the extension, shr
 
 ### [v1.3.8] - 2026-09-05
 
-* Updated the toolbar and extension icons to use `icons/ThunderbirdPersonalSpamFilter.png`.
+* Updated the toolbar and extension icons to use the bundled shield icon artwork.
 * Rebuilt the installable XPI with the updated icon configuration.
 
 ### [v1.3.7] - 2026-09-05
