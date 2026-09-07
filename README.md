@@ -140,6 +140,7 @@ ThunderbirdPersonalSpamFilter/
 ├── .github/
 │   └── workflows/
 │       └── package.yml
+├── .gitattributes
 ├── .gitignore
 ├── LICENSE
 ├── manifest.json
