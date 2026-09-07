@@ -75,7 +75,14 @@ function renderFooterVersion(api) {
   if (!footerText) return;
 
   const version = api.runtime.getManifest().version;
-  footerText.innerHTML = `OpenAI Spam Detector ${escapeHtml(version)} is offered FREE by <strong>BlastFM Limited</strong>.`;
+
+  // Built with DOM APIs rather than innerHTML, matching renderLog(), even
+  // though version is already trusted first-party data.
+  while (footerText.firstChild) footerText.removeChild(footerText.firstChild);
+  footerText.appendChild(document.createTextNode(`OpenAI Spam Detector ${version} is offered FREE by `));
+  const strong = document.createElement('strong');
+  strong.textContent = 'BlastFM Limited';
+  footerText.append(strong, document.createTextNode('.'));
 }
 
 function setupDynamicSaveStatus() {
@@ -164,15 +171,23 @@ function renderLog(containerId, list, emptyMessage) {
   const container = document.getElementById(containerId);
   if (!container) return;
 
+  // Built with DOM APIs (createElement/textContent) rather than innerHTML
+  // so no assembled markup string is ever parsed as HTML, regardless of
+  // what ends up in sender/subject/body-snippet fields.
+  while (container.firstChild) container.removeChild(container.firstChild);
+
   if (!list || list.length === 0) {
-    container.innerHTML = `<div class="empty-state">${emptyMessage}</div>`;
+    const empty = document.createElement('div');
+    empty.className = 'empty-state';
+    empty.textContent = emptyMessage;
+    container.appendChild(empty);
     return;
   }
 
   const isSpamLog = containerId === 'spamLogContainer';
   const isFP = containerId === 'falsePositivesContainer';
 
-  container.innerHTML = list.map((item, index) => {
+  list.forEach((item, index) => {
     const isNewest = index === 0;
     const iconPath = isSpamLog ? 'icons/spam-red.png' : 'icons/not-spam-green.png';
     const author = item.author || item.sender || 'Unknown Sender';
@@ -180,32 +195,73 @@ function renderLog(containerId, list, emptyMessage) {
     const dateRaw = item.dateAdded || item.timestamp || item.date;
     const formattedDate = dateRaw ? new Date(dateRaw).toLocaleDateString() + ' ' + new Date(dateRaw).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '';
 
-    return `
-      <div class="log-card-item ${isNewest ? 'newest-entry' : ''}">
-        <div class="log-card-header">
-          <div class="log-author-wrap">
-            <img src="${iconPath}" alt="Status" style="width:14px; height:14px; flex-shrink:0;">
-            <span class="log-author">${escapeHtml(author)}</span>
-          </div>
-          <div class="log-meta">
-            ${isNewest ? '<span class="entry-badge">Latest</span>' : ''}
-            <span class="log-date">${formattedDate}</span>
-          </div>
-        </div>
-        <div class="log-subject">${escapeHtml(subject)}</div>
-        <div class="log-snippet">${escapeHtml(item.bodySnippet || '')}</div>
-        <div class="log-footer${isSpamLog ? ' log-footer-end' : ''}">
-          ${isSpamLog ? `
-            <button class="btn btn-green-outline btn-sm mark-not-spam-btn" data-index="${index}">Mark as Not Spam</button>
-          ` : ''}
-          ${isFP ? `
-            <span class="training-badge">Active Training Prompt</span>
-            <button class="btn btn-orange-outline btn-sm remove-fp-btn" data-index="${index}">Remove</button>
-          ` : ''}
-        </div>
-      </div>
-    `;
-  }).join('');
+    const card = document.createElement('div');
+    card.className = `log-card-item${isNewest ? ' newest-entry' : ''}`;
+
+    const header = document.createElement('div');
+    header.className = 'log-card-header';
+
+    const authorWrap = document.createElement('div');
+    authorWrap.className = 'log-author-wrap';
+    const icon = document.createElement('img');
+    icon.src = iconPath;
+    icon.alt = 'Status';
+    icon.style.width = '14px';
+    icon.style.height = '14px';
+    icon.style.flexShrink = '0';
+    const authorSpan = document.createElement('span');
+    authorSpan.className = 'log-author';
+    authorSpan.textContent = author;
+    authorWrap.append(icon, authorSpan);
+
+    const meta = document.createElement('div');
+    meta.className = 'log-meta';
+    if (isNewest) {
+      const badge = document.createElement('span');
+      badge.className = 'entry-badge';
+      badge.textContent = 'Latest';
+      meta.appendChild(badge);
+    }
+    const dateSpan = document.createElement('span');
+    dateSpan.className = 'log-date';
+    dateSpan.textContent = formattedDate;
+    meta.appendChild(dateSpan);
+
+    header.append(authorWrap, meta);
+
+    const subjectDiv = document.createElement('div');
+    subjectDiv.className = 'log-subject';
+    subjectDiv.textContent = subject;
+
+    const snippetDiv = document.createElement('div');
+    snippetDiv.className = 'log-snippet';
+    snippetDiv.textContent = item.bodySnippet || '';
+
+    const footer = document.createElement('div');
+    footer.className = `log-footer${isSpamLog ? ' log-footer-end' : ''}`;
+
+    if (isSpamLog) {
+      const notSpamBtn = document.createElement('button');
+      notSpamBtn.className = 'btn btn-green-outline btn-sm mark-not-spam-btn';
+      notSpamBtn.dataset.index = String(index);
+      notSpamBtn.textContent = 'Mark as Not Spam';
+      footer.appendChild(notSpamBtn);
+    }
+
+    if (isFP) {
+      const trainingBadge = document.createElement('span');
+      trainingBadge.className = 'training-badge';
+      trainingBadge.textContent = 'Active Training Prompt';
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'btn btn-orange-outline btn-sm remove-fp-btn';
+      removeBtn.dataset.index = String(index);
+      removeBtn.textContent = 'Remove';
+      footer.append(trainingBadge, removeBtn);
+    }
+
+    card.append(header, subjectDiv, snippetDiv, footer);
+    container.appendChild(card);
+  });
 
   if (isSpamLog) {
     container.querySelectorAll('.mark-not-spam-btn').forEach(btn => {
@@ -550,15 +606,6 @@ function downloadJson(dataObject, filename) {
       URL.revokeObjectURL(url);
     }, 150);
   }
-}
-
-function escapeHtml(str) {
-  return String(str || '')
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
 }
 
 function getErrorMessage(error) {
