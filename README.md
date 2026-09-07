@@ -52,7 +52,7 @@ Open the Extension Options page (`Tools > Add-ons & Themes > Options`) to config
 
 The recommended conservative classification policy is provided as a downloadable JSON file instead of being printed inline in this README:
 
-[Download conservative-classification-policy.json](https://raw.githubusercontent.com/BlastFM/ThunderbirdPersonalSpamFilter/main/docs/conservative-classification-policy.json)
+[Download conservative-classification-policy.json](https://github.com/BlastFM/ThunderbirdPersonalSpamFilter/releases/latest/download/conservative-classification-policy.json)
 
 To use it, download the file, open the extension Options page, click **Import backup**, and choose `conservative-classification-policy.json`. The import updates only **Custom Classification Prompt Rules**; it does not replace your API key, whitelist, blacklist, spam log, or AI Training Memory.
 #### Using the Dedicated Local Spam Folder
