@@ -49,6 +49,13 @@ function setupDynamicSaveStatus() {
     document.getElementById(id).addEventListener('input', markSettingsDirty);
     document.getElementById(id).addEventListener('change', markSettingsDirty);
   });
+
+  // Typing/pasting rules into Custom Classification Prompt Rules should
+  // immediately make Export backup available, even with empty logs.
+  const customPromptField = document.getElementById('customPrompt');
+  if (customPromptField) {
+    customPromptField.addEventListener('input', updateExportBackupState);
+  }
 }
 
 let settingsDirty = false;
@@ -79,28 +86,43 @@ function setHeaderStatus(text, state = 'ready') {
 
 // --- LOG LOADING & RENDERING ---
 
+// Cached so the Custom Classification Prompt Rules field can re-evaluate
+// export eligibility on its own input events without re-fetching the logs.
+let lastSpamLog = [];
+let lastFalsePositives = [];
+
 async function loadLogs() {
   const api = typeof messenger !== 'undefined' ? messenger : browser;
   const { spamLog = [], falsePositives = [] } =
     await api.storage.local.get(['spamLog', 'falsePositives']);
 
+  lastSpamLog = spamLog;
+  lastFalsePositives = falsePositives;
+
   renderLog('spamLogContainer', spamLog, 'No spam detected yet.');
   renderLog('falsePositivesContainer', falsePositives, 'No false positives recorded.');
-  updateExportBackupState(spamLog, falsePositives);
+  updateExportBackupState();
 }
 
-// Exporting a backup with no spam log and no training memory would only
-// contain settings and (optionally) the API key, so disable the button
-// until there's actually something worth backing up.
-function updateExportBackupState(spamLog, falsePositives) {
+// Exporting a backup with no spam log, no training memory, and no custom
+// prompt rules would only contain baseline settings and (optionally) the
+// API key, so disable the button until there's actually something worth
+// backing up. A populated Custom Classification Prompt Rules field counts
+// too, since that's exactly what the importable Conservative Classification
+// Policy file restores.
+function updateExportBackupState() {
   const exportBtn = document.getElementById('exportBackup');
   if (!exportBtn) return;
 
-  const hasLogs = (spamLog && spamLog.length > 0) || (falsePositives && falsePositives.length > 0);
-  exportBtn.disabled = !hasLogs;
-  exportBtn.title = hasLogs
+  const customPromptField = document.getElementById('customPrompt');
+  const hasCustomPrompt = !!(customPromptField && customPromptField.value.trim());
+  const hasLogs = (lastSpamLog && lastSpamLog.length > 0) || (lastFalsePositives && lastFalsePositives.length > 0);
+  const hasContent = hasLogs || hasCustomPrompt;
+
+  exportBtn.disabled = !hasContent;
+  exportBtn.title = hasContent
     ? ''
-    : 'No spam log or training memory entries to back up yet';
+    : 'No spam log, training memory, or custom prompt rules to back up yet';
 }
 
 function renderLog(containerId, list, emptyMessage) {
@@ -419,6 +441,7 @@ function setupBackupHandlers() {
           await api.storage.sync.set({ customPrompt: importedData.customPrompt });
           document.getElementById('customPrompt').value = importedData.customPrompt;
           settingsDirty = false;
+          updateExportBackupState();
           showStatus("Classification policy imported. New messages will use these custom rules", "success");
           return;
         }
