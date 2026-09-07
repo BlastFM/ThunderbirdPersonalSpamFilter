@@ -608,6 +608,19 @@ textarea {
   background-color: rgba(0, 112, 186, 0.06);
 }
 
+.support-link {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.support-link:hover,
+.support-link:focus-visible {
+  color: var(--text-dark);
+}
+
 .donate-icon {
   font-size: 0.85rem;
 }
