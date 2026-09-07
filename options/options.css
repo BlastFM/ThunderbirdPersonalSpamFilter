@@ -147,7 +147,7 @@ body {
   display: grid;
   grid-template-columns: minmax(420px, 0.86fr) minmax(0, 1.14fr);
   gap: 22px;
-  align-items: start;
+  align-items: stretch;
 }
 
 .card {
@@ -156,6 +156,11 @@ body {
   border-radius: 16px;
   padding: 24px;
   box-shadow: 0 8px 22px rgba(15, 42, 54, 0.07);
+}
+
+.activity-card {
+  display: flex;
+  flex-direction: column;
 }
 
 .card h2 {
@@ -376,11 +381,12 @@ textarea {
 
 .log-container {
   min-height: 120px;
-  max-height: 280px;
+  max-height: none;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  flex: 1 1 auto;
 }
 
 /* Log Entry Card Items */
