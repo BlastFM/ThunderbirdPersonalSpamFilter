@@ -117,7 +117,7 @@ function renderLog(containerId, list, emptyMessage) {
 
   container.innerHTML = list.map((item, index) => {
     const isNewest = index === 0;
-    const iconPath = isSpamLog ? '../icons/spam-red.png' : '../icons/not-spam-green.png';
+    const iconPath = isSpamLog ? 'icons/spam-red.png' : 'icons/not-spam-green.png';
     const author = item.author || item.sender || 'Unknown Sender';
     const subject = item.subject || 'No Subject';
     const dateRaw = item.dateAdded || item.timestamp || item.date;
