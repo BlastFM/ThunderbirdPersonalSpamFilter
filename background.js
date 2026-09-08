@@ -428,7 +428,16 @@ async function classifyEmailWithOpenAI({ author, subject, body, apiKey, model, c
     });
 
     if (!response.ok) {
-      console.error("[Thunderbird OpenAI Spam Detector] OpenAI API error status:", response.status);
+      let errorBody = "";
+      try {
+        errorBody = await response.text();
+      } catch (readErr) {
+        errorBody = "(could not read response body)";
+      }
+      console.error(
+        `[Thunderbird OpenAI Spam Detector] OpenAI API error status: ${response.status}. Body: ${errorBody}`
+      );
+      await notifyClassificationFailure(response.status, errorBody);
       return false;
     }
 
@@ -437,7 +446,50 @@ async function classifyEmailWithOpenAI({ author, subject, body, apiKey, model, c
     return !!result.isSpam;
   } catch (err) {
     console.error("[Thunderbird OpenAI Spam Detector] Classification failed:", err);
+    await notifyClassificationFailure(null, (err && err.message) || String(err));
     return false;
+  }
+}
+
+// A misconfigured/exhausted API key (invalid key, expired billing, rate
+// limit, quota exceeded) makes every classification silently fail closed
+// (treated as "not spam", per classifyEmailWithOpenAI's catch-all), which
+// looks identical to "the AI just isn't catching much spam" from the
+// options page -- there was previously no way to tell the two apart short
+// of manually opening the Error Console. Surface a single notification per
+// cooldown window instead of failing silently on every message.
+let lastClassificationFailureNotifyAt = 0;
+const CLASSIFICATION_FAILURE_NOTIFY_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
+
+async function notifyClassificationFailure(status, detail) {
+  const now = Date.now();
+  if (now - lastClassificationFailureNotifyAt < CLASSIFICATION_FAILURE_NOTIFY_COOLDOWN_MS) {
+    return;
+  }
+  lastClassificationFailureNotifyAt = now;
+
+  let reason = "An unknown error occurred while contacting OpenAI.";
+  if (status === 401 || status === 403) {
+    reason = "Your OpenAI API key was rejected (invalid or revoked). Spam detection is not running.";
+  } else if (status === 429) {
+    reason = "OpenAI rate limit or quota exceeded. Spam detection may be skipping messages until this clears.";
+  } else if (status && status >= 500) {
+    reason = `OpenAI's service returned an error (HTTP ${status}). Spam detection may be skipping messages.`;
+  } else if (status) {
+    reason = `OpenAI returned an error (HTTP ${status}). Spam detection may be skipping messages.`;
+  } else if (detail) {
+    reason = `Spam detection failed: ${detail}`;
+  }
+
+  try {
+    await messenger.notifications.create({
+      type: "basic",
+      iconUrl: "icons/icon-128.png",
+      title: "Spam Detector: Classification Failing",
+      message: reason + " Check the Options page and the Error Console for details."
+    });
+  } catch (notifyErr) {
+    console.error("[Thunderbird OpenAI Spam Detector] Could not show classification-failure notification:", notifyErr);
   }
 }
 
