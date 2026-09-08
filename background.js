@@ -620,6 +620,37 @@ async function manualMarkAsNotSpam(messageId, headerMessageId = null) {
     }
 
     if (!targetFolder) {
+      // No per-message origin is recorded (the entry predates origin
+      // tracking, or was already sitting in the destination when logged).
+      // Before falling back to the generic default Inbox, reuse the origin
+      // folder recorded by the *other* recent log entries -- for a user who
+      // always filters from one account/folder, that is a much better guess
+      // than the profile's default Inbox, which is what previously sent
+      // restores to the wrong folder.
+      const originCounts = new Map();
+      for (const item of spamLog) {
+        if (item !== logItem && item.originFolderId) {
+          originCounts.set(item.originFolderId, (originCounts.get(item.originFolderId) || 0) + 1);
+        }
+      }
+      let bestOriginId = null;
+      let bestCount = 0;
+      for (const [folderId, count] of originCounts) {
+        if (count > bestCount) { bestCount = count; bestOriginId = folderId; }
+      }
+      if (bestOriginId) {
+        try {
+          targetFolder = await messenger.folders.get(bestOriginId);
+          if (targetFolder) {
+            console.log(`[Thunderbird OpenAI Spam Detector] Not-Spam restore: no per-message origin; reusing the most common origin folder from the spam log ("${targetFolder.name}", seen ${bestCount}x).`);
+          }
+        } catch (e) {
+          console.warn("[Thunderbird OpenAI Spam Detector] Most common origin folder unavailable, falling back to Inbox.", e);
+        }
+      }
+    }
+
+    if (!targetFolder) {
       targetFolder = await findFallbackInboxFolder(messageHeader.folder.accountId);
     }
     console.log(
