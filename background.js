@@ -553,6 +553,12 @@ async function resolveCurrentMessage(messageId, headerMessageId) {
 async function manualMarkAsNotSpam(messageId, headerMessageId = null) {
   try {
     const messageHeader = await resolveCurrentMessage(messageId, headerMessageId);
+    console.log(
+      `[Thunderbird OpenAI Spam Detector] Not-Spam restore: resolved id=${messageHeader.id} ` +
+      `(requested id=${messageId}), headerMessageId=${messageHeader.headerMessageId}, ` +
+      `folder="${messageHeader.folder ? messageHeader.folder.name : '?'}" ` +
+      `(account ${messageHeader.folder ? messageHeader.folder.accountId : '?'})`
+    );
     const bodyText = await getPlainTextBodyForAction(messageHeader.id);
 
     const { spamLog = [], falsePositives = [] } =
@@ -567,16 +573,23 @@ async function manualMarkAsNotSpam(messageId, headerMessageId = null) {
     let targetFolder = null;
 
     if (logItem && logItem.originFolderId) {
+      console.log(`[Thunderbird OpenAI Spam Detector] Not-Spam restore: spam log entry found, origin folder id=${logItem.originFolderId}`);
       try {
         targetFolder = await messenger.folders.get(logItem.originFolderId);
       } catch (e) {
-        console.warn("[Thunderbird OpenAI Spam Detector] Origin folder unavailable, falling back to Inbox.");
+        console.warn("[Thunderbird OpenAI Spam Detector] Origin folder unavailable, falling back to Inbox.", e);
       }
+    } else {
+      console.log(`[Thunderbird OpenAI Spam Detector] Not-Spam restore: no spam log entry found for this message (spamLog has ${spamLog.length} entries).`);
     }
 
     if (!targetFolder) {
       targetFolder = await findFallbackInboxFolder(messageHeader.folder.accountId);
     }
+    console.log(
+      `[Thunderbird OpenAI Spam Detector] Not-Spam restore: destination=` +
+      (targetFolder ? `"${targetFolder.name}" (id=${targetFolder.id}, account ${targetFolder.accountId})` : 'NONE')
+    );
 
     const newFP = {
       id: messageHeader.id,
@@ -619,6 +632,7 @@ async function manualMarkAsNotSpam(messageId, headerMessageId = null) {
 
     try {
       await moveMessageTracked(messageHeader.id, targetFolder);
+      console.log(`[Thunderbird OpenAI Spam Detector] Not-Spam restore: move reported success (id=${messageHeader.id}).`);
     } catch (moveErr) {
       // messages.move is unreliable for cross-account moves (e.g. out of
       // the shared "Local Folders / AI Filtered Spam" folder back into an
@@ -635,20 +649,25 @@ async function manualMarkAsNotSpam(messageId, headerMessageId = null) {
       );
       try {
         await messenger.messages.copy([messageHeader.id], targetFolder.id);
+        console.log(`[Thunderbird OpenAI Spam Detector] Not-Spam restore: copy to destination reported success.`);
 
         if (messageHeader.headerMessageId) {
           const check = await messenger.messages.query({
             headerMessageId: messageHeader.headerMessageId
           });
+          const locations = (check && check.messages ? check.messages : [])
+            .map(m => `"${m.folder ? m.folder.name : '?'}" (${m.folder ? m.folder.id : '?'})`);
           const arrived = check && check.messages && check.messages.some(m =>
             m.folder && m.folder.id === targetFolder.id
           );
+          console.log(`[Thunderbird OpenAI Spam Detector] Not-Spam restore: copy verification -> arrived=${arrived}; copies found in: ${locations.join(', ') || 'none'}`);
           if (!arrived) {
             throw new Error("Copy appeared to succeed, but the message was not found in the destination folder.");
           }
         }
 
         await messenger.messages.delete([messageHeader.id]);
+        console.log(`[Thunderbird OpenAI Spam Detector] Not-Spam restore: original deleted from spam folder.`);
       } catch (fallbackErr) {
         // The message is still in the spam folder. Put its Detected Spam
         // Log entry back so the options page keeps listing it and the
