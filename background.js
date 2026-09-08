@@ -536,12 +536,47 @@ async function handleSpamMessage(messageHeader, fullBody, destinationOverride = 
 // The RFC822 Message-ID header does not change across moves, so prefer
 // resolving the message via messages.query({ headerMessageId }) whenever
 // we have one, and only fall back to the possibly-stale id.
+// RFC822 Message-IDs are stored canonically with angle brackets in
+// MessageHeader.headerMessageId, but entries written by older versions of
+// this extension (and some broken senders) may lack them. Normalise both
+// sides before comparing so a bare "abc@host" still matches "<abc@host>".
+function normalizeMessageId(id) {
+  if (!id) return null;
+  const trimmed = String(id).trim();
+  const inner = trimmed.replace(/^<+|>+$/g, '');
+  return inner ? `<${inner}>` : null;
+}
+
 async function resolveCurrentMessage(messageId, headerMessageId) {
   if (headerMessageId) {
     try {
       const result = await messenger.messages.query({ headerMessageId });
       if (result && result.messages && result.messages.length > 0) {
-        return result.messages[0];
+        // The same Message-ID can exist in several folders at once
+        // (duplicate deliveries, or an earlier restore that left a copy
+        // behind). Blindly taking the first match can resolve to a stale
+        // copy in a different folder than the one the user acted on, which
+        // previously turned a restore into a silent no-op (moving an Inbox
+        // copy "back" to the Inbox while the spam-folder copy the user
+        // clicked was never touched). Prefer the exact message the caller
+        // passed in when it is among the matches; otherwise prefer a copy
+        // that is NOT in the configured spam destination, since a restore
+        // should act on the spam-folder copy.
+        const candidates = result.messages;
+        const exact = candidates.find(m => m.id === messageId);
+        if (exact) return exact;
+        const { targetFolder = 'trash' } = await messenger.storage.sync.get({ targetFolder: 'trash' });
+        const preferred = [];
+        for (const m of candidates) {
+          if (!m.folder) { preferred.push(m); continue; }
+          try {
+            const destination = await resolveSpamDestinationFolder(m.folder.accountId, targetFolder, new Map());
+            if (!destination || destination.id !== m.folder.id) preferred.push(m);
+          } catch (e) {
+            preferred.push(m);
+          }
+        }
+        return preferred[0] || candidates[0];
       }
     } catch (err) {
       console.warn("[Thunderbird OpenAI Spam Detector] headerMessageId lookup failed, falling back to stored id:", err);
@@ -564,11 +599,12 @@ async function manualMarkAsNotSpam(messageId, headerMessageId = null) {
     const { spamLog = [], falsePositives = [] } =
       await messenger.storage.local.get(['spamLog', 'falsePositives']);
 
+    const targetHeaderId = normalizeMessageId(messageHeader.headerMessageId);
     const logItem = spamLog.find(item =>
       item.id === messageId ||
       item.id === messageHeader.id ||
-      (messageHeader.headerMessageId &&
-        item.headerMessageId === messageHeader.headerMessageId)
+      (targetHeaderId &&
+        normalizeMessageId(item.headerMessageId) === targetHeaderId)
     );
     let targetFolder = null;
 
@@ -593,7 +629,7 @@ async function manualMarkAsNotSpam(messageId, headerMessageId = null) {
 
     const newFP = {
       id: messageHeader.id,
-      headerMessageId: messageHeader.headerMessageId || null,
+      headerMessageId: normalizeMessageId(messageHeader.headerMessageId),
       author: messageHeader.author,
       subject: messageHeader.subject,
       bodySnippet: (bodyText || "").substring(0, 120).replace(/\s+/g, ' '),
