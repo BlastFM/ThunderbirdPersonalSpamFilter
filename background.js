@@ -226,6 +226,28 @@ async function processIncomingMessages(messageList) {
         }
       }
 
+      // Guard against re-spamming a message the user just manually
+      // restored with "Mark as Not Spam". Restoring out of the shared
+      // "Local Folders / AI Filtered Spam" folder back to a different
+      // account is also a copy+delete, which assigns the restored copy a
+      // new id and can make Thunderbird surface it as "new mail" in the
+      // destination folder, re-triggering this very function for it
+      // almost immediately -- before pendingProgrammaticMoves (which is
+      // keyed by the pre-move id) has any chance of matching. Without this
+      // guard, the AI could reclassify the message as spam again and
+      // immediately bounce it right back into the spam folder, undoing
+      // the user's action. falsePositives is only ever appended to by an
+      // explicit user action (this restore, or the options page's
+      // "Mark as Not Spam" log button), so matching against it here is a
+      // hard override, not just AI training context.
+      if (falsePositives.some(fp =>
+        (fullMessage.headerMessageId && fp.headerMessageId === fullMessage.headerMessageId) ||
+        fp.id === fullMessage.id
+      )) {
+        console.log("[Thunderbird OpenAI Spam Detector] Skipping classification: message was manually marked Not Spam.");
+        continue;
+      }
+
       // Fast-Path 1: Whitelist Match (Skip AI & Stay in Inbox)
       if (matchesDomainPattern(senderEmail, safePatterns)) {
         console.log(`[Thunderbird OpenAI Spam Detector] Whitelisted pattern match (${senderEmail}): Skipping classification.`);
@@ -578,13 +600,24 @@ async function manualMarkAsNotSpam(messageId, headerMessageId = null) {
       throw new Error("No destination folder was found for restoring the message.");
     }
 
-    await moveMessageTracked(messageHeader.id, targetFolder);
-
-    // Only update training history after Thunderbird confirms the restore.
+    // Persist the training history *before* moving the message. Moving a
+    // message to a folder in a different account (e.g. restoring out of
+    // the shared "Local Folders / AI Filtered Spam" folder back to an
+    // IMAP account's Inbox) is a copy+delete under the hood and assigns
+    // the message a new id, which can make Thunderbird surface the
+    // restored copy as "new mail" in the destination folder. That fires
+    // processIncomingMessages again almost immediately, and if this
+    // false-positive entry were written only after the move, the AI could
+    // reclassify the same message as spam before the override was ever
+    // recorded, bouncing it straight back into the spam folder. Writing
+    // the entry first means processIncomingMessages' isKnownFalsePositive
+    // guard (see below) is already in place by the time that happens.
     await messenger.storage.local.set({
       falsePositives: updatedFP,
       spamLog: updatedSpamLog
     });
+
+    await moveMessageTracked(messageHeader.id, targetFolder);
   } catch (err) {
     console.error("[Thunderbird OpenAI Spam Detector] Error marking message as not spam:", err);
     throw err;
