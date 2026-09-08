@@ -622,11 +622,42 @@ async function manualMarkAsNotSpam(messageId, headerMessageId = null) {
     if (!targetFolder) {
       // No per-message origin is recorded (the entry predates origin
       // tracking, or was already sitting in the destination when logged).
-      // Before falling back to the generic default Inbox, reuse the origin
+      // The To: address identifies which account received the message, so
+      // match it against each account's identity email and restore to that
+      // account's Inbox -- far more reliable than the profile's default
+      // Inbox, which is what previously sent restores to the wrong folder.
+      try {
+        const recipientEmails = (messageHeader.recipients || [])
+          .map(r => getSenderEmail(r))
+          .filter(Boolean);
+        if (recipientEmails.length > 0) {
+          const accounts = await messenger.accounts.list(true);
+          for (const account of accounts) {
+            if (account.type === "local" || account.type === "none") continue;
+            const identityEmails = (account.identities || [])
+              .map(id => (id.email || "").trim().toLowerCase())
+              .filter(Boolean);
+            const matched = recipientEmails.some(r => identityEmails.includes(r));
+            if (matched) {
+              const inbox = findFolderByType(account.rootFolder ? account.rootFolder.subFolders : [], 'inbox');
+              if (inbox) {
+                targetFolder = inbox;
+                console.log(`[Thunderbird OpenAI Spam Detector] Not-Spam restore: no per-message origin; matched a recipient to account "${account.name}", restoring to its Inbox.`);
+                break;
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("[Thunderbird OpenAI Spam Detector] Recipient-based account match failed.", e);
+      }
+    }
+
+    if (!targetFolder) {
+      // No recipient matched a known account identity. Reuse the origin
       // folder recorded by the *other* recent log entries -- for a user who
       // always filters from one account/folder, that is a much better guess
-      // than the profile's default Inbox, which is what previously sent
-      // restores to the wrong folder.
+      // than the profile's default Inbox.
       const originCounts = new Map();
       for (const item of spamLog) {
         if (item !== logItem && item.originFolderId) {
