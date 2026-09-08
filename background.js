@@ -617,7 +617,61 @@ async function manualMarkAsNotSpam(messageId, headerMessageId = null) {
       spamLog: updatedSpamLog
     });
 
-    await moveMessageTracked(messageHeader.id, targetFolder);
+    try {
+      await moveMessageTracked(messageHeader.id, targetFolder);
+    } catch (moveErr) {
+      // messages.move is unreliable for cross-account moves (e.g. out of
+      // the shared "Local Folders / AI Filtered Spam" folder back into an
+      // IMAP account's Inbox): it sits on nsIMsgCopyService, whose
+      // cross-account behaviour has been restricted since Thunderbird 91,
+      // so the move can throw and leave the message stuck in the spam
+      // folder even though the training entry above was already written.
+      // Fall back to the documented workaround: copy the message, verify
+      // the copy actually arrived in the destination, then delete the
+      // original.
+      console.warn(
+        "[Thunderbird OpenAI Spam Detector] Direct move failed, trying copy+delete fallback:",
+        moveErr
+      );
+      try {
+        await messenger.messages.copy([messageHeader.id], targetFolder.id);
+
+        if (messageHeader.headerMessageId) {
+          const check = await messenger.messages.query({
+            headerMessageId: messageHeader.headerMessageId
+          });
+          const arrived = check && check.messages && check.messages.some(m =>
+            m.folder && m.folder.id === targetFolder.id
+          );
+          if (!arrived) {
+            throw new Error("Copy appeared to succeed, but the message was not found in the destination folder.");
+          }
+        }
+
+        await messenger.messages.delete([messageHeader.id]);
+      } catch (fallbackErr) {
+        // The message is still in the spam folder. Put its Detected Spam
+        // Log entry back so the options page keeps listing it and the
+        // restore can be retried. The training entry (falsePositives) is
+        // intentionally kept: it still records the user's intent and stops
+        // the AI from re-spamming the message in the meantime.
+        if (logItem) {
+          try {
+            const { spamLog: currentLog = [] } = await messenger.storage.local.get(['spamLog']);
+            const alreadyListed = currentLog.some(item =>
+              (logItem.headerMessageId && item.headerMessageId === logItem.headerMessageId) ||
+              item.id === logItem.id
+            );
+            if (!alreadyListed) {
+              await messenger.storage.local.set({ spamLog: [logItem, ...currentLog] });
+            }
+          } catch (rollbackErr) {
+            console.warn("[Thunderbird OpenAI Spam Detector] Could not restore the spam log entry:", rollbackErr);
+          }
+        }
+        throw fallbackErr;
+      }
+    }
   } catch (err) {
     console.error("[Thunderbird OpenAI Spam Detector] Error marking message as not spam:", err);
     throw err;
