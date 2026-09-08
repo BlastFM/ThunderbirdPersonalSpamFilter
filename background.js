@@ -553,7 +553,7 @@ async function manualMarkAsNotSpam(messageId, headerMessageId = null) {
     }
 
     if (!targetFolder) {
-      targetFolder = findFolderByType(await getAccountFolders(messageHeader.folder.accountId), 'inbox');
+      targetFolder = await findFallbackInboxFolder(messageHeader.folder.accountId);
     }
 
     const newFP = {
@@ -589,6 +589,47 @@ async function manualMarkAsNotSpam(messageId, headerMessageId = null) {
     console.error("[Thunderbird OpenAI Spam Detector] Error marking message as not spam:", err);
     throw err;
   }
+}
+
+// Falls back to an Inbox when no per-message origin folder is known (e.g.
+// the spam log entry was pruned or cleared). The message's *current*
+// folder's account cannot be used for this lookup: when the configured
+// spam destination is "Local Folders / AI Filtered Spam", the message is
+// currently sitting in the shared Local Folders account, which normally
+// has no Inbox of its own -- searching there for one silently found
+// nothing and left the message stuck in the spam folder. Prefer the
+// profile's default account's Inbox instead, then fall back to the first
+// non-local account that has one.
+async function findFallbackInboxFolder(currentAccountId) {
+  const isLocalAccount = (a) => a && (a.type === "local" || a.type === "none" || a.name === "Local Folders");
+
+  try {
+    const accounts = await messenger.accounts.list(true);
+
+    // Prefer the account the message is currently sitting in, unless that
+    // is the shared Local Folders account.
+    const currentAccount = accounts.find(a => a.id === currentAccountId);
+    if (currentAccount && !isLocalAccount(currentAccount)) {
+      const inbox = findFolderByType(currentAccount.rootFolder.subFolders, 'inbox');
+      if (inbox) return inbox;
+    }
+
+    const defaultAccount = await messenger.accounts.getDefault(true);
+    if (defaultAccount && !isLocalAccount(defaultAccount)) {
+      const inbox = findFolderByType(defaultAccount.rootFolder ? defaultAccount.rootFolder.subFolders : [], 'inbox');
+      if (inbox) return inbox;
+    }
+
+    for (const account of accounts) {
+      if (isLocalAccount(account)) continue;
+      const inbox = findFolderByType(account.rootFolder ? account.rootFolder.subFolders : [], 'inbox');
+      if (inbox) return inbox;
+    }
+  } catch (err) {
+    console.warn("[Thunderbird OpenAI Spam Detector] Could not resolve a fallback Inbox folder:", err);
+  }
+
+  return null;
 }
 
 function findFolderByType(folders, typeName) {
