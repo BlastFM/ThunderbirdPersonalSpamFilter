@@ -1,12 +1,13 @@
 document.addEventListener('DOMContentLoaded', async () => {
   const api = typeof messenger !== 'undefined' ? messenger : browser;
 
-  // Non-secret settings live in storage.sync (so they roam with the
-  // profile); the API key lives in storage.local only, so it never leaves
-  // this machine.
-  const { model, targetFolder, customPrompt, whitelist, blacklist } =
+  // Compact non-secret settings live in storage.sync. The API key and
+  // potentially large custom prompt live in storage.local to avoid sync
+  // quota failures and keep the secret on this machine.
+  const { model, targetFolder, customPrompt: syncedCustomPrompt, whitelist, blacklist } =
     await api.storage.sync.get(['model', 'targetFolder', 'customPrompt', 'whitelist', 'blacklist']);
-  const { apiKey } = await api.storage.local.get(['apiKey']);
+  const { apiKey, customPrompt: localCustomPrompt } = await api.storage.local.get(['apiKey', 'customPrompt']);
+  const customPrompt = localCustomPrompt || syncedCustomPrompt || '';
 
   if (apiKey) document.getElementById('apiKey').value = apiKey || '';
   if (model) document.getElementById('model').value = model || 'gpt-4o-mini';
@@ -349,9 +350,10 @@ document.getElementById('save').addEventListener('click', async () => {
 
   try {
     setHeaderStatus('Saving...', 'saving');
-    // Secret stays local-only; everything else can roam via sync.
+    // Secret and long custom prompts stay local-only; compact settings roam via sync.
     await api.storage.local.set({ apiKey });
-    await api.storage.sync.set({ model, targetFolder, whitelist, blacklist, customPrompt });
+    await saveCustomPrompt(api, customPrompt);
+    await api.storage.sync.set({ model, targetFolder, whitelist, blacklist });
     settingsDirty = false;
     showStatus('Settings saved. New messages will use these rules', 'success');
   } catch (err) {
@@ -483,6 +485,18 @@ function populateFormFields(settings, credentials) {
   }
 }
 
+async function saveCustomPrompt(api, customPrompt) {
+  await api.storage.local.set({ customPrompt: customPrompt || '' });
+  if (api.storage.sync.remove) {
+    await api.storage.sync.remove('customPrompt');
+  }
+}
+
+function splitCustomPromptFromSettings(settings) {
+  const { customPrompt = '', ...syncSettings } = settings || {};
+  return { customPrompt, syncSettings };
+}
+
 function setupBackupHandlers() {
   const exportBtn = document.getElementById('exportBackup');
   const importFileInput = document.getElementById('importFileInput');
@@ -505,14 +519,14 @@ function setupBackupHandlers() {
         const api = typeof messenger !== 'undefined' ? messenger : browser;
         const syncData = await api.storage.sync.get(null);
         const localData = await api.storage.local.get(null);
-        const { apiKey, ...logsAndTraining } = localData;
+        const { apiKey, customPrompt, ...logsAndTraining } = localData;
         const manifestVersion = api.runtime && api.runtime.getManifest ? api.runtime.getManifest().version : '1.4.6';
 
         const fullBackup = {
           version: manifestVersion,
           exportedAt: new Date().toISOString(),
           type: "full_backup",
-          settings: syncData,
+          settings: { ...syncData, customPrompt: customPrompt || syncData.customPrompt || '' },
           credentials: { apiKey: apiKey || '' },
           logsAndTraining
         };
@@ -528,8 +542,8 @@ function setupBackupHandlers() {
   if (importFileInput) {
     importFileInput.addEventListener('change', (e) => {
       handleImportFile(e, async (importedData, api) => {
-        if (importedData.type === "classification_policy" && typeof importedData.customPrompt === "string") {
-          await api.storage.sync.set({ customPrompt: importedData.customPrompt });
+        if (typeof importedData.customPrompt === "string" && !importedData.logsAndTraining) {
+          await saveCustomPrompt(api, importedData.customPrompt);
           document.getElementById('customPrompt').value = importedData.customPrompt;
           settingsDirty = false;
           updateExportBackupState();
@@ -540,11 +554,13 @@ function setupBackupHandlers() {
         if (importedData.settings) {
           // Back-compat: older backups put apiKey inside "settings".
           const hasLegacyApiKey = Object.prototype.hasOwnProperty.call(importedData.settings, 'apiKey');
-          const { apiKey: legacyApiKey, ...syncSettings } = importedData.settings;
+          const { apiKey: legacyApiKey, ...settingsWithoutApiKey } = importedData.settings;
+          const { customPrompt, syncSettings } = splitCustomPromptFromSettings(settingsWithoutApiKey);
           const credentials = importedData.credentials ||
             (hasLegacyApiKey ? { apiKey: legacyApiKey } : null);
 
           await api.storage.sync.set(syncSettings);
+          await saveCustomPrompt(api, customPrompt);
           if (credentials && Object.prototype.hasOwnProperty.call(credentials, 'apiKey')) {
             if (credentials.apiKey) {
               await api.storage.local.set({ apiKey: credentials.apiKey });
@@ -555,7 +571,7 @@ function setupBackupHandlers() {
           if (importedData.logsAndTraining) {
             await api.storage.local.set(importedData.logsAndTraining);
           }
-          populateFormFields(syncSettings, credentials);
+          populateFormFields({ ...syncSettings, customPrompt }, credentials);
         } else {
           await api.storage.local.set(importedData);
         }

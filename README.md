@@ -35,7 +35,7 @@ The options page now provides clearer progress, validation, success, and error m
 
 🔍 Checksum (Integrity Verification)  
 Filename: openai-spam-detector-v1.4.36.xpi
-### SHA-256: `C18E318BAA4212B5B0B5B766E8858DB06ED04962C59892417E2D3BAF946F1717`
+### SHA-256: See the GitHub release asset digest for the current package.
 
 ### Configuration Options
 
@@ -221,7 +221,9 @@ Both actions leave their logs unchanged if Thunderbird cannot complete the reque
 ```mermaid
 graph TD
     A[New email received] --> B[Read sender, subject, and message body]
-    B --> C{Whitelist match?}
+    B --> N{Sender or Reply-To malformed?}
+    N -- Yes --> F[Move to configured spam destination]
+    N -- No --> C{Whitelist match?}
     C -- Yes --> D[Keep in inbox and skip classification]
     C -- No --> E{Blacklist match?}
     E -- Yes --> F[Move to configured spam destination]
@@ -259,6 +261,7 @@ Privacy Note: Transmitted email content includes the sender address, subject lin
 ### [v1.4.36] - 2026-09-08 (Stable)
 
 * Classification failures (invalid/revoked API key, OpenAI rate limit or quota exceeded, a 5xx outage, or a network/parsing error) previously failed silently: the message was simply left alone and treated as "not spam" with only a line in the Error Console. If your key is misconfigured or has run out of quota, this can look exactly like "the AI just isn't catching much spam" with no visible cause. A system notification ("Spam Detector: Classification Failing") is now shown the first time this happens (and at most once per hour afterwards while it persists), and the full OpenAI error response body is now logged to the Error Console to make the actual cause (bad key, quota, rate limit, etc.) immediately visible.
+* Large Custom Classification Prompt Rules now import into local extension storage instead of Thunderbird sync storage, avoiding `QuotaExceededError` for the expanded conservative policy JSON while keeping older synced prompts readable for backward compatibility.
 
 ### [v1.4.35] - 2026-09-08 (Stable)
 
