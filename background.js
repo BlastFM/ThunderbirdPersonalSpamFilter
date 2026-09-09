@@ -159,11 +159,291 @@ function globToRegex(pattern) {
   return new RegExp(regexString);
 }
 
+function normalizeHeaderValue(headerValue) {
+  if (Array.isArray(headerValue)) {
+    return headerValue
+      .filter(value => value !== null && value !== undefined)
+      .map(value => String(value))
+      .join(', ');
+  }
+  return headerValue === null || headerValue === undefined ? '' : String(headerValue);
+}
+
+function splitMailboxList(headerValue) {
+  const normalized = normalizeHeaderValue(headerValue).trim();
+  if (!normalized) return [];
+
+  const tokens = [];
+  let current = '';
+  let inQuotes = false;
+  let escapeNext = false;
+  let angleDepth = 0;
+  let commentDepth = 0;
+
+  for (const char of normalized) {
+    if (escapeNext) {
+      current += char;
+      escapeNext = false;
+      continue;
+    }
+
+    if (char === '\\' && inQuotes) {
+      current += char;
+      escapeNext = true;
+      continue;
+    }
+
+    if (char === '"' && commentDepth === 0) {
+      inQuotes = !inQuotes;
+      current += char;
+      continue;
+    }
+
+    if (!inQuotes) {
+      if (char === '<') {
+        angleDepth += 1;
+      } else if (char === '>' && angleDepth > 0) {
+        angleDepth -= 1;
+      } else if (char === '(') {
+        commentDepth += 1;
+      } else if (char === ')' && commentDepth > 0) {
+        commentDepth -= 1;
+      }
+    }
+
+    if (!inQuotes && angleDepth === 0 && commentDepth === 0 && (char === ',' || char === ';')) {
+      if (current.trim()) tokens.push(current.trim());
+      current = '';
+      continue;
+    }
+
+    current += char;
+  }
+
+  if (current.trim()) tokens.push(current.trim());
+  return tokens;
+}
+
+function stripHeaderComments(value) {
+  let result = '';
+  let inQuotes = false;
+  let escapeNext = false;
+  let commentDepth = 0;
+
+  for (const char of value) {
+    if (escapeNext) {
+      if (commentDepth === 0) result += char;
+      escapeNext = false;
+      continue;
+    }
+
+    if (char === '\\' && inQuotes) {
+      if (commentDepth === 0) result += char;
+      escapeNext = true;
+      continue;
+    }
+
+    if (char === '"' && commentDepth === 0) {
+      inQuotes = !inQuotes;
+      result += char;
+      continue;
+    }
+
+    if (!inQuotes) {
+      if (char === '(') {
+        commentDepth += 1;
+        continue;
+      }
+      if (char === ')' && commentDepth > 0) {
+        commentDepth -= 1;
+        continue;
+      }
+    }
+
+    if (commentDepth === 0) result += char;
+  }
+
+  return result.trim();
+}
+
+function extractAddressSpec(mailboxEntry) {
+  const trimmed = stripHeaderComments((mailboxEntry || '').trim());
+  if (!trimmed) return '';
+
+  const bracketMatch = trimmed.match(/<\s*([^<>]+?)\s*>/);
+  if (bracketMatch) {
+    return bracketMatch[1].trim().toLowerCase();
+  }
+
+  return trimmed.includes('@') ? trimmed.trim().toLowerCase() : '';
+}
+
+function parseMailboxEntries(headerValue) {
+  return splitMailboxList(headerValue).map(entry => ({
+    raw: entry,
+    address: extractAddressSpec(entry)
+  }));
+}
+
 // Helper: Extract full email address from author string
 function getSenderEmail(authorString) {
-  if (!authorString) return '';
-  const match = authorString.match(/<([^>]+)>/) || [null, authorString];
-  return (match[1] || authorString).trim().toLowerCase();
+  const entries = parseMailboxEntries(authorString);
+  return entries.length > 0 ? entries[0].address : '';
+}
+
+function getReplyToHeader(messageBody) {
+  return messageBody && messageBody.headers ? messageBody.headers['reply-to'] : '';
+}
+
+function getReplyToAddresses(messageBody) {
+  return parseMailboxEntries(getReplyToHeader(messageBody))
+    .map(entry => entry.address)
+    .filter(Boolean);
+}
+
+const UNQUOTED_LOCAL_PART_RE = /^[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*$/i;
+
+function isQuotedLocalPart(localPart) {
+  return localPart.length >= 2 && localPart.startsWith('"') && localPart.endsWith('"');
+}
+
+function isValidQuotedLocalPart(localPart) {
+  if (!isQuotedLocalPart(localPart)) return false;
+
+  let escapeNext = false;
+  for (let i = 1; i < localPart.length - 1; i += 1) {
+    const char = localPart[i];
+    const code = char.charCodeAt(0);
+
+    if (escapeNext) {
+      if (code < 32 || code === 127) return false;
+      escapeNext = false;
+      continue;
+    }
+
+    if (char === '\\') {
+      escapeNext = true;
+      continue;
+    }
+
+    if (char === '"' || code < 32 || code === 127) {
+      return false;
+    }
+  }
+
+  return !escapeNext;
+}
+
+function isValidLocalPart(localPart) {
+  if (!localPart || localPart.length > 64) return false;
+
+  if (isQuotedLocalPart(localPart)) {
+    return isValidQuotedLocalPart(localPart);
+  }
+
+  if (localPart.startsWith('.') || localPart.endsWith('.') || localPart.includes('..')) {
+    return false;
+  }
+
+  return UNQUOTED_LOCAL_PART_RE.test(localPart);
+}
+
+function isIpv4Address(value) {
+  if (!/^(\d{1,3}\.){3}\d{1,3}$/.test(value)) return false;
+
+  return value.split('.').every(part => {
+    const numeric = Number(part);
+    return Number.isInteger(numeric) && numeric >= 0 && numeric <= 255;
+  });
+}
+
+function isIpv6Address(value) {
+  return value.includes(':');
+}
+
+function isIpAddressDomain(domain) {
+  const unwrapped = domain.replace(/^\[|\]$/g, '');
+  if (/^ipv6:/i.test(unwrapped)) return true;
+  return isIpv4Address(unwrapped) || isIpv6Address(unwrapped);
+}
+
+function isValidDomainLabel(label) {
+  if (!label || label.length > 63) return false;
+  if (label.startsWith('-') || label.endsWith('-')) return false;
+
+  if (/^[a-z0-9-]+$/i.test(label)) return true;
+
+  return /^[^\s@<>\[\]\(\),;:"'\\\/]+$/u.test(label);
+}
+
+function isValidPublicDomain(domain) {
+  if (!domain) return false;
+
+  const normalized = domain.trim().toLowerCase().replace(/\.+$/, '');
+  if (!normalized) return false;
+  if (normalized === 'localhost' || normalized.endsWith('.localhost')) return false;
+  if (normalized.includes('..') || normalized.startsWith('.')) return false;
+  if (normalized.includes('_')) return false;
+  if (isIpAddressDomain(normalized)) return false;
+
+  const labels = normalized.split('.');
+  if (labels.length < 2) return false;
+  if (!labels.every(isValidDomainLabel)) return false;
+
+  const topLevel = labels[labels.length - 1];
+  if (/^\d+$/.test(topLevel)) return false;
+
+  return true;
+}
+
+function isValidEmailAddress(address) {
+  const normalized = (address || '').trim();
+  if (!normalized) return false;
+
+  const firstAt = normalized.indexOf('@');
+  const lastAt = normalized.lastIndexOf('@');
+  if (firstAt <= 0 || firstAt !== lastAt || lastAt === normalized.length - 1) {
+    return false;
+  }
+
+  const localPart = normalized.slice(0, firstAt);
+  const domain = normalized.slice(firstAt + 1);
+
+  return isValidLocalPart(localPart) && isValidPublicDomain(domain);
+}
+
+function getAddressValidationFailure(authorString, replyToHeaderValue) {
+  const normalizedAuthor = normalizeHeaderValue(authorString).trim();
+  if (normalizedAuthor) {
+    const senderEntries = parseMailboxEntries(authorString);
+    if (senderEntries.length === 0 || !senderEntries[0].address) {
+      return 'Malformed sender address';
+    }
+    if (!isValidEmailAddress(senderEntries[0].address)) {
+      return `Malformed sender address: ${senderEntries[0].address}`;
+    }
+  }
+
+  const normalizedReplyTo = normalizeHeaderValue(replyToHeaderValue).trim();
+  if (!normalizedReplyTo) {
+    return null;
+  }
+
+  const replyToEntries = parseMailboxEntries(replyToHeaderValue);
+  if (replyToEntries.length === 0) {
+    return 'Malformed Reply-To address';
+  }
+
+  for (const entry of replyToEntries) {
+    if (!entry.address) {
+      return `Malformed Reply-To address: ${entry.raw}`;
+    }
+    if (!isValidEmailAddress(entry.address)) {
+      return `Malformed Reply-To address: ${entry.address}`;
+    }
+  }
+
+  return null;
 }
 
 // Helper: Match sender email or domain against wildcard rules
@@ -188,9 +468,10 @@ function matchesDomainPattern(senderEmail, patternList) {
 }
 
 async function processIncomingMessages(messageList) {
-  const { model, customPrompt, whitelist = '', blacklist = '', targetFolder } =
+  const { model, customPrompt: syncedCustomPrompt, whitelist = '', blacklist = '', targetFolder } =
     await messenger.storage.sync.get(['model', 'customPrompt', 'whitelist', 'blacklist', 'targetFolder']);
-  const { apiKey } = await messenger.storage.local.get(['apiKey']);
+  const { apiKey, customPrompt: localCustomPrompt } = await messenger.storage.local.get(['apiKey', 'customPrompt']);
+  const customPrompt = localCustomPrompt || syncedCustomPrompt || '';
 
   const safePatterns = whitelist.split(',').map(d => d.trim()).filter(Boolean);
   const blockedPatterns = blacklist.split(',').map(d => d.trim()).filter(Boolean);
@@ -209,7 +490,6 @@ async function processIncomingMessages(messageList) {
   for (let message of messageList) {
     try {
       const fullMessage = await messenger.messages.get(message.id);
-      const senderEmail = getSenderEmail(fullMessage.author);
 
       // Guard against reclassifying messages that are already in the spam
       // destination. This matters most for the "Local Folders / AI Filtered
@@ -248,6 +528,22 @@ async function processIncomingMessages(messageList) {
         continue;
       }
 
+      const messageBody = await messenger.messages.getFull(message.id);
+      const senderEmail = getSenderEmail(fullMessage.author);
+      const replyToAddresses = getReplyToAddresses(messageBody);
+      const addressValidationFailure = getAddressValidationFailure(
+        fullMessage.author,
+        getReplyToHeader(messageBody)
+      );
+
+      if (addressValidationFailure) {
+        console.log(
+          `[Thunderbird OpenAI Spam Detector] Hard address validation failure (${addressValidationFailure}): moving to spam.`
+        );
+        await handleSpamMessage(fullMessage, addressValidationFailure);
+        continue;
+      }
+
       // Fast-Path 1: Whitelist Match (Skip AI & Stay in Inbox)
       if (matchesDomainPattern(senderEmail, safePatterns)) {
         console.log(`[Thunderbird OpenAI Spam Detector] Whitelisted pattern match (${senderEmail}): Skipping classification.`);
@@ -267,10 +563,11 @@ async function processIncomingMessages(messageList) {
         continue; // was `return` - that aborted the whole batch, not just this message
       }
 
-      const bodyText = await getPlainTextBody(message.id);
+      const bodyText = getPlainTextBodyFromMessage(messageBody);
 
       const isSpam = await classifyEmailWithOpenAI({
         author: fullMessage.author,
+        replyTo: replyToAddresses.length > 0 ? replyToAddresses.join(', ') : '(missing)',
         subject: fullMessage.subject,
         body: bodyText.substring(0, 1500),
         apiKey,
@@ -330,13 +627,17 @@ async function resolveSpamDestinationFolder(accountId, resolvedTargetFolder, cac
 
 // Shared helper: fetch a message's body and return plain, HTML-stripped text.
 // Centralizes logic that was previously duplicated in three places.
-async function getPlainTextBody(messageId) {
-  const messageBody = await messenger.messages.getFull(messageId);
+function getPlainTextBodyFromMessage(messageBody) {
   let bodyText = extractTextFromParts(messageBody.parts || []);
   if (!bodyText.trim() && messageBody.body) {
     bodyText = messageBody.body;
   }
   return stripHtmlTags(bodyText);
+}
+
+async function getPlainTextBody(messageId) {
+  const messageBody = await messenger.messages.getFull(messageId);
+  return getPlainTextBodyFromMessage(messageBody);
 }
 
 async function getPlainTextBodyForAction(messageId) {
@@ -387,7 +688,7 @@ function stripHtmlTags(str) {
     .trim();
 }
 
-async function classifyEmailWithOpenAI({ author, subject, body, apiKey, model, customPrompt, falsePositives, confirmedSpam }) {
+async function classifyEmailWithOpenAI({ author, replyTo, subject, body, apiKey, model, customPrompt, falsePositives, confirmedSpam }) {
   let fpContext = "";
   if (falsePositives && falsePositives.length > 0) {
     // Most-recent examples are the most relevant training signal, and
@@ -407,7 +708,7 @@ async function classifyEmailWithOpenAI({ author, subject, body, apiKey, model, c
 
   const systemPrompt = `You are an expert email spam classifier running inside Thunderbird. Analyze the email and respond strictly with JSON: {"isSpam": true} or {"isSpam": false}. Do not include markdown formatting or commentary.${spamContext}${fpContext}${customPrompt ? `\n\nCustom User Rules:\n${customPrompt}` : ""}`;
 
-  const userContent = `From: ${author}\nSubject: ${subject}\nBody Snippet:\n${body}`;
+  const userContent = `From: ${author}\nReply-To: ${replyTo}\nSubject: ${subject}\nBody Snippet:\n${body}`;
 
   try {
     const response = await fetch("https://api.openai.com/v1/chat/completions", {

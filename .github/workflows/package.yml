@@ -23,7 +23,7 @@ jobs:
         run: |
           version=$(jq -r '.version' manifest.json)
           archive="openai-spam-detector-v${version}.xpi"
-          zip -r "$archive" manifest.json options background.js icons README.md LICENSE -x "*.git*"
+          zip -r "$archive" manifest.json options background.js icons docs README.md LICENSE -x "*.git*"
           echo "archive=$archive" >> "$GITHUB_OUTPUT"
 
       - name: Upload Build Artifact
