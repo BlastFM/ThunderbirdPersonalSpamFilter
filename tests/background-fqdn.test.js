@@ -254,6 +254,62 @@ async function main() {
     );
   }
 
+  {
+    const longBody = `${'A'.repeat(1600)} MALICIOUS PAYLOAD AFTER OLD LIMIT`;
+    const customPrompt = 'CUSTOM RULE: treat payload marker as SPAM';
+    const harness = buildHarness({
+      sync: { whitelist: '', blacklist: '', targetFolder: 'trash', model: 'gpt-4o-mini' },
+      local: { apiKey: 'test-key', customPrompt, falsePositives: [], spamLog: [] },
+      messages: {
+        3: {
+          id: 3,
+          author: '"Sender" <sender@example.com>',
+          subject: 'Payload check',
+          headerMessageId: '<message-3@example.com>',
+          folder: { id: 'inbox-folder', accountId: 'account-1', name: 'Inbox' }
+        }
+      },
+      fullMessages: {
+        3: {
+          headers: {
+            'reply-to': ['"Support" <reply@example.com>'],
+            'authentication-results': ['mx.example.com; dkim=fail; spf=softfail'],
+            'return-path': ['<bounce@example.net>']
+          },
+          parts: [
+            { contentType: 'text/plain', body: longBody },
+            { contentType: 'application/pdf', name: 'invoice.pdf', size: 12345 }
+          ]
+        }
+      }
+    });
+
+    await harness.api.processIncomingMessages([{ id: 3 }]);
+
+    assert.strictEqual(harness.fetchCalls.length, 1, 'valid non-whitelisted mail should reach OpenAI');
+    const requestBody = JSON.parse(harness.fetchCalls[0][1].body);
+    assert.match(
+      requestBody.messages[0].content,
+      /CUSTOM RULE: treat payload marker as SPAM/,
+      'custom prompt rules must be included in the OpenAI system message'
+    );
+    assert.match(
+      requestBody.messages[1].content,
+      /authentication-results: mx\.example\.com; dkim=fail; spf=softfail/,
+      'relevant authentication headers should be included in the classifier evidence'
+    );
+    assert.match(
+      requestBody.messages[1].content,
+      /invoice\.pdf/,
+      'attachment metadata should be included in the classifier evidence'
+    );
+    assert.match(
+      requestBody.messages[1].content,
+      /MALICIOUS PAYLOAD AFTER OLD LIMIT/,
+      'classifier body excerpt should include content beyond the old 1,500-character limit'
+    );
+  }
+
   console.log('background-fqdn tests passed');
 }
 
