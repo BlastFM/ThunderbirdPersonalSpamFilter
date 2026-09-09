@@ -17,7 +17,7 @@ Compatibility: Thunderbird 128.0+ (Manifest V3)
 
 **v1.4.37 is the current stable release**, verified to automatically scan and correctly route new messages (including those arriving in the Junk folder) and to restore manual "Mark as Spam (Train AI)" / "Mark as Not Spam" actions on current Thunderbird MV3 builds. It also feeds the Detected Spam Log back into future AI classification, alongside the existing AI Training Memory (Not Spam) examples.
 
-This release adds a redesigned options interface with clearer action grouping, stronger status cues, and more distinct backup and destructive controls. The header now identifies BlastFM Limited, states that the add-on is currently free, and dynamically reports save status. It also includes the reliability and packaging fixes from v1.3.4.
+This release adds the V2 production conservative classification policy, keeps large prompt imports out of Thunderbird sync storage, and preserves the hard sender/Reply-To address validation added in the recent reliability updates.
 
 🌟 What's Changed  
 🐛 Bug Fixes & Stability Improvements
@@ -150,7 +150,7 @@ ThunderbirdPersonalSpamFilter/
 │   ├── options-page-current.png
 │   └── options-page-populated.png
 ├── README.md
-├── openai-spam-detector-v1.4.22.xpi
+├── openai-spam-detector-v1.4.37.xpi
 ├── icons/
 │   ├── icon-16.png
 │   ├── icon-32.png
