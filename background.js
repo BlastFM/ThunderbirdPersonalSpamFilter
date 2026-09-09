@@ -9,6 +9,20 @@ console.log("[Thunderbird OpenAI Spam Detector] Background service worker initia
 // not a hard guarantee. It eliminates the common case (local folders/POP,
 // and the immediate re-fire that IMAP servers also usually produce).
 const pendingProgrammaticMoves = new Set();
+const CLASSIFICATION_BODY_CHAR_LIMIT = 6000;
+const CLASSIFICATION_HEADER_NAMES = [
+  'from',
+  'sender',
+  'reply-to',
+  'return-path',
+  'to',
+  'cc',
+  'authentication-results',
+  'received-spf',
+  'arc-authentication-results',
+  'dkim-signature',
+  'list-id'
+];
 
 async function moveMessageTracked(messageId, destinationFolder) {
   pendingProgrammaticMoves.add(messageId);
@@ -564,12 +578,16 @@ async function processIncomingMessages(messageList) {
       }
 
       const bodyText = getPlainTextBodyFromMessage(messageBody);
+      const classificationHeaders = formatClassificationHeaders(messageBody);
+      const attachmentSummary = formatAttachmentSummary(messageBody);
 
       const isSpam = await classifyEmailWithOpenAI({
         author: fullMessage.author,
         replyTo: replyToAddresses.length > 0 ? replyToAddresses.join(', ') : '(missing)',
         subject: fullMessage.subject,
-        body: bodyText.substring(0, 1500),
+        headers: classificationHeaders,
+        attachments: attachmentSummary,
+        body: bodyText.substring(0, CLASSIFICATION_BODY_CHAR_LIMIT),
         apiKey,
         model: activeModel,
         customPrompt,
@@ -688,7 +706,56 @@ function stripHtmlTags(str) {
     .trim();
 }
 
-async function classifyEmailWithOpenAI({ author, replyTo, subject, body, apiKey, model, customPrompt, falsePositives, confirmedSpam }) {
+function getMessageHeaderValues(messageBody, headerName) {
+  const headers = messageBody && messageBody.headers ? messageBody.headers : {};
+  const requestedName = headerName.toLowerCase();
+  const matchingKey = Object.keys(headers).find(key => key.toLowerCase() === requestedName);
+  return matchingKey ? normalizeHeaderValue(headers[matchingKey]).trim() : '';
+}
+
+function formatClassificationHeaders(messageBody) {
+  const lines = [];
+  for (const headerName of CLASSIFICATION_HEADER_NAMES) {
+    const value = getMessageHeaderValues(messageBody, headerName);
+    if (value) {
+      lines.push(`${headerName}: ${value}`);
+    }
+  }
+  return lines.join('\n');
+}
+
+function collectAttachmentParts(parts, attachments = []) {
+  for (const part of parts || []) {
+    const contentType = (part.contentType || '').toLowerCase();
+    const filename = part.name || part.filename || part.partName || '';
+    const disposition = (part.disposition || '').toLowerCase();
+    const isBodyPart = contentType === 'text/plain' || contentType === 'text/html';
+
+    if (filename || disposition === 'attachment' || (contentType && !isBodyPart && !part.parts)) {
+      attachments.push({
+        filename: filename || '(unnamed)',
+        contentType: contentType || '(unknown)',
+        size: part.size || part.bodySize || ''
+      });
+    }
+
+    if (part.parts) {
+      collectAttachmentParts(part.parts, attachments);
+    }
+  }
+  return attachments;
+}
+
+function formatAttachmentSummary(messageBody) {
+  const attachments = collectAttachmentParts(messageBody && messageBody.parts ? messageBody.parts : []);
+  if (attachments.length === 0) return '';
+  return attachments.map(attachment => {
+    const sizeText = attachment.size ? `, size=${attachment.size}` : '';
+    return `- ${attachment.filename} (${attachment.contentType}${sizeText})`;
+  }).join('\n');
+}
+
+async function classifyEmailWithOpenAI({ author, replyTo, subject, headers, attachments, body, apiKey, model, customPrompt, falsePositives, confirmedSpam }) {
   let fpContext = "";
   if (falsePositives && falsePositives.length > 0) {
     // Most-recent examples are the most relevant training signal, and
@@ -708,7 +775,17 @@ async function classifyEmailWithOpenAI({ author, replyTo, subject, body, apiKey,
 
   const systemPrompt = `You are an expert email spam classifier running inside Thunderbird. Analyze the email and respond strictly with JSON: {"isSpam": true} or {"isSpam": false}. Do not include markdown formatting or commentary.${spamContext}${fpContext}${customPrompt ? `\n\nCustom User Rules:\n${customPrompt}` : ""}`;
 
-  const userContent = `From: ${author}\nReply-To: ${replyTo}\nSubject: ${subject}\nBody Snippet:\n${body}`;
+  const userContent = `From: ${author}
+Reply-To: ${replyTo}
+Subject: ${subject}
+Relevant Headers:
+${headers || '(none)'}
+
+Attachments:
+${attachments || '(none)'}
+
+Body Excerpt (first ${CLASSIFICATION_BODY_CHAR_LIMIT} characters):
+${body}`;
 
   try {
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
