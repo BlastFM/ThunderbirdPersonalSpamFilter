@@ -1,29 +1,50 @@
 {
-  "manifest_version": 2,
+  "manifest_version": 3,
   "name": "Thunderbird OpenAI Spam Detector",
-  "version": "1.0",
-  "description": "An AI-powered spam detection extension for Thunderbird using OpenAI.",
+  "version": "1.4.41",
+  "description": "AI-powered email filtering & custom training for Mozilla Thunderbird.",
   "permissions": [
-    "activeTab",
+    "accountsRead",
+    "accountsFolders",
     "storage",
-    "mail",
-    "tabs",
+    "messagesRead",
+    "messagesMove",
+    "messagesDelete",
+    "menus",
     "notifications",
-    "contextMenus",
-    "api.openai.com"
+    "tabs"
   ],
-  "background": {
-    "service_worker": "background.js"
+  "host_permissions": [
+    "https://api.openai.com/*"
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "openai-spam-detector@blastfm.limited",
+      "strict_min_version": "128.0"
+    }
   },
-  "options_page": "options.html",
-  "content_scripts": [],
+  "background": {
+    "scripts": [
+      "background.js"
+    ]
+  },
+  "action": {
+    "default_title": "OpenAI Spam Detector",
+    "default_popup": "options/popup.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png"
+    }
+  },
+  "options_ui": {
+    "page": "options/options.html",
+    "open_in_tab": true
+  },
   "icons": {
     "16": "icons/icon-16.png",
     "32": "icons/icon-32.png",
     "48": "icons/icon-48.png",
     "128": "icons/icon-128.png"
-  },
-  "host_permissions": [
-    "https://api.openai.com/v1/*"
-  ]
+  }
 }
