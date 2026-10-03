@@ -1,7 +1,7 @@
 # OpenAI Spam Detector for Thunderbird
 
-![Extension Version](https://img.shields.io/badge/version-1.4.40-blue.svg)
-![Thunderbird](https://img.shields.io/badge/Thunderbird-115.0%2B-58A6FF.svg?logo=thunderbird&logoColor=white)
+![Extension Version](https://img.shields.io/badge/version-1.4.42-blue.svg)
+![Thunderbird](https://img.shields.io/badge/Thunderbird-128.0%2B-58A6FF.svg?logo=thunderbird&logoColor=white)
 ![Manifest Version](https://img.shields.io/badge/manifest-v3-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-brightgreen.svg)
 
@@ -11,19 +11,19 @@ This add-on is offered **FREE by BlastFM Limited**. OpenAI API usage may incur s
 
 ---
 
-Release Date: September 9, 2026
+Release Date: October 3, 2026
 
 Compatibility: Thunderbird 128.0+ (Manifest V3)
 
-**v1.4.40 is the current stable release**, verified to automatically scan and correctly route new messages (including those arriving in the Junk folder) and to restore manual "Mark as Spam (Train AI)" / "Mark as Not Spam" actions on current Thunderbird MV3 builds. It also feeds the Detected Spam Log back into future AI classification, alongside the existing AI Training Memory (Not Spam) examples.
+**v1.4.42 is the current stable release**, verified to automatically scan and correctly route new messages (including those arriving in the Junk folder) and to restore manual "Mark as Spam (Train AI)" / "Mark as Not Spam" actions on current Thunderbird MV3 builds. It also feeds the Detected Spam Log back into future AI classification, alongside the existing AI Training Memory (Not Spam) examples.
 
-This release adds the V2 production conservative classification policy, keeps large prompt imports out of Thunderbird sync storage, and preserves the hard sender/Reply-To address validation added in the recent reliability updates.
+This release sends structured address checks, HTML link destinations, authentication summaries, and beginning/end body excerpts to OpenAI. Whitelisted senders are now evaluated by the AI instead of bypassing classification; whitelist status is supporting evidence, not a guarantee of safety. This increases API usage for whitelisted mail. The hard From/Reply-To validation and local storage for custom rules remain in place.
 
 🌟 What's Changed  
 🐛 Bug Fixes & Stability Improvements
 Archive Path Resolution (/ Normalization): Switched the XPI build process to .NET archive compilation to enforce forward-slash path separators. This resolves the persistent "Page Not Found" errors on the Options page and missing toolbar icons on Windows installations.
 
-Manifest V3 Permission Mapping: Updated manifest.json with complete relative icon sizing declarations across icons and action.default_icon, alongside updated permissions (accountsRead, accountsFolders, messagesRead, messagesMove, storage, downloads, tabs, menus).
+Manifest V3 Permission Mapping: Updated manifest.json with complete relative icon sizing declarations across icons and action.default_icon, alongside updated permissions (accountsRead, accountsFolders, messagesRead, messagesMove, storage, messagesDelete, notifications, tabs, menus).
 
 Options UI & Scope Fixes: Resolved duplicate DOM element ID conflicts and variable scoping errors in options.js and options.html.
 
@@ -34,7 +34,7 @@ Full backup and restore controls are provided in the Detected Spam Log panel. A 
 The options page now provides clearer progress, validation, success, and error messages for settings, OpenAI connection tests, spam logs, AI training memory, and backup actions. All of these messages use the dynamic header status indicator rather than a separate floating confirmation. Status and error announcements use accessible live-region behavior for assistive technology.
 
 🔍 Checksum (Integrity Verification)  
-Filename: openai-spam-detector-v1.4.40.xpi
+Filename: openai-spam-detector-v1.4.42.xpi
 ### SHA-256: See the GitHub release asset digest for the current package.
 
 ### Configuration Options
@@ -69,7 +69,7 @@ To keep AI-detected spam isolated from server-synced folders:
   - **AI Training Memory**: Stores non-spam classifications to refine filter accuracy.
 - **Context-Menu Training**: Mark messages as spam or not spam directly from the Thunderbird message list.
 - **Reliable Folder Routing**: Spam can be sent to Trash, the account Junk folder, or `Local Folders / AI Filtered Spam`.
-- **Move-Before-Log Guarantees**: Training and classification logs are updated only after Thunderbird confirms the requested message move.
+- **Reliable Training and Logging**: Spam entries are logged after a successful move. Not-spam memory is recorded before restoration to prevent immediate reclassification, with rollback if restoration fails.
 - **Scrollable Log Views**: Vertical overflow containers prevent layout disruption regardless of log entry volume.
 - **JSON Backup & Restore**: Export and import your storage configuration and logs at any time.
 - **Backup Compatibility**: Backups that omit the API-key field preserve the existing local key; an explicitly empty API-key field clears it.
@@ -111,22 +111,22 @@ Restore success is reported only after storage writes and the log refresh comple
 
 Install [Mozilla Thunderbird](https://www.thunderbird.net/) first, then install the OpenAI Spam Detector extension from the release asset below.
 
-[![Download Release](https://img.shields.io/badge/Download-v1.4.40_.XPI-blue?style=for-the-badge&logo=thunderbird&logoColor=white)](https://github.com/BlastFM/ThunderbirdPersonalSpamFilter/releases/download/v1.4.40/openai-spam-detector-v1.4.40.xpi)
+[![Download Release](https://img.shields.io/badge/Download-v1.4.42_.XPI-blue?style=for-the-badge&logo=thunderbird&logoColor=white)](https://github.com/BlastFM/ThunderbirdPersonalSpamFilter/releases/download/v1.4.42/openai-spam-detector-v1.4.42.xpi)
 [![Get Latest Release](https://img.shields.io/github/v/release/BlastFM/ThunderbirdPersonalSpamFilter?color=green&label=Latest%20Release&style=for-the-badge)](https://github.com/BlastFM/ThunderbirdPersonalSpamFilter/releases/latest)
 
 ### Direct Downloads
 
 | Asset | Description | Download Link |
 | :--- | :--- | :--- |
-| **Extension Binary** | Ready-to-install Thunderbird Add-on | [`openai-spam-detector-v1.4.40.xpi`](https://github.com/BlastFM/ThunderbirdPersonalSpamFilter/releases/download/v1.4.40/openai-spam-detector-v1.4.40.xpi) |
-| **Source Code** | Compressed source files (`.zip`) | [`Source code (zip)`](https://github.com/BlastFM/ThunderbirdPersonalSpamFilter/archive/refs/tags/v1.4.40.zip) |
+| **Extension Binary** | Ready-to-install Thunderbird Add-on | [`openai-spam-detector-v1.4.42.xpi`](https://github.com/BlastFM/ThunderbirdPersonalSpamFilter/releases/download/v1.4.42/openai-spam-detector-v1.4.42.xpi) |
+| **Source Code** | Compressed source files (`.zip`) | [`Source code (zip)`](https://github.com/BlastFM/ThunderbirdPersonalSpamFilter/archive/refs/tags/v1.4.42.zip) |
 
 ---
 
 ### How to Install in Thunderbird
 
 1. Download and install [Mozilla Thunderbird](https://www.thunderbird.net/) if it is not already installed.
-2. Click the extension download button above to save **`openai-spam-detector-v1.4.40.xpi`**.
+2. Click the extension download button above to save **`openai-spam-detector-v1.4.42.xpi`**.
 3. Open Thunderbird and navigate to **Add-ons and Themes** (`Ctrl+Shift+A` or `Cmd+Shift+A`).
 4. Click the gear icon (**Tools for all add-ons**) in the top-right corner.
 5. Select **Install Add-on From File...** and choose the downloaded `.xpi` file.
@@ -150,7 +150,7 @@ ThunderbirdPersonalSpamFilter/
 │   ├── options-page-current.png
 │   └── options-page-populated.png
 ├── README.md
-├── openai-spam-detector-v1.4.40.xpi
+├── openai-spam-detector-v1.4.42.xpi
 ├── icons/
 │   ├── icon-16.png
 │   ├── icon-32.png
@@ -212,9 +212,9 @@ Click Save Settings.
 Context Menu Training
 Mark as Spam: Right-click any email in your message list and choose **Mark as Spam (Train AI)**. The add-on moves the email to the configured spam destination first, then records the successful action in the Detected Spam Log. The original folder is retained for restoration.
 
-Mark as Not Spam: Right-click an email and choose **Mark as Not Spam (Train AI)**. The add-on restores the email to its recorded original folder when available, then adds it to AI Training Memory and removes it from the Detected Spam Log. If the original folder is unavailable, it falls back to the account Inbox.
+Mark as Not Spam: Right-click an email and choose **Mark as Not Spam (Train AI)**. The add-on records not-spam training memory before restoration to prevent immediate reclassification, restores the email to its recorded original folder when available, and removes it from the Detected Spam Log after success. If the original folder is unavailable, it falls back to the account Inbox.
 
-Both actions leave their logs unchanged if Thunderbird cannot complete the requested move. Message header identifiers are retained to improve restoration matching when Thunderbird assigns a new message ID during an IMAP move.
+Both actions roll back log and training-memory changes if Thunderbird cannot complete the requested move. Message header identifiers are retained to improve restoration matching when Thunderbird assigns a new message ID during an IMAP move.
 
 ### Message Processing Pipeline
 
@@ -231,13 +231,13 @@ graph TD
     E -- No --> H{API key configured?}
     H -- No --> I[Keep message unchanged and log a warning]
     H -- Yes --> J[Load custom rules and AI Training Memory]
-    J --> K[Send relevant headers, attachment metadata, and up to 6,000 body characters to OpenAI]
+    J --> K[Send headers, address checks, links, attachment metadata, whitelist status, and body excerpt to OpenAI]
     K --> L{Spam verdict?}
     L -- Yes --> F
     L -- No --> M[Keep message in its current folder]
 ```
 
-Messages are logged only after a spam move succeeds. A failed move leaves the Detected Spam Log unchanged. Manual **Mark as Spam (Train AI)** and **Mark as Not Spam (Train AI)** actions use the same move-before-log principle; the not-spam action restores the original folder when available and then updates Active AI Training Memory.
+Messages are logged only after a spam move succeeds. A failed move leaves the Detected Spam Log unchanged. Manual **Mark as Spam (Train AI)** logs after a successful move. **Mark as Not Spam (Train AI)** records training memory before restoration to prevent restored mail from being immediately reclassified, and rolls it back if restoration fails.
 
 🛡️ Permissions & Privacy
 This add-on requires the following WebExtension permissions:
@@ -254,9 +254,22 @@ storage: To save configuration keys, logs, and user training memory locally.
 
 Host Permission (https://api.openai.com/*): Required to transmit snippet data to OpenAI endpoints for evaluation.
 
-Privacy Note: Transmitted email content includes selected message headers, sender and reply-to addresses, subject line, attachment metadata, and up to the first 6,000 characters of the body text. Data is processed according to OpenAI's Data Usage Policies. No data is sent to intermediate third-party servers.
+Privacy Note: Transmitted email content includes selected message headers, sender and reply-to addresses, subject line, attachment metadata, and up to 6,000 body characters (the first 4,000 and last 2,000 for longer messages), extracted HTML link text/destinations, structured address checks, authentication summaries, and whitelist-match status. Data is processed according to OpenAI's Data Usage Policies. No data is sent to intermediate third-party servers.
 
 ## Release History
+
+### [v1.4.42] - 2026-10-03 (Stable)
+
+* Added structured From/Sender/Reply-To/Return-Path validation evidence to the OpenAI request. Checks are syntax-only: DNS, MX, and public-suffix validity are not verified. Hard local spam routing applies to From and present Reply-To only; Sender/Return-Path anomalies remain supporting evidence.
+* Whitelisted senders now reach AI classification when an API key is configured, allowing malicious content from compromised or forged senders to be assessed. This increases API usage for whitelisted mail.
+* Extracted visible HTML link text and actual href destinations, parsed authentication results, and retained the beginning/end of long bodies within a 6,000-character content budget. Link summaries include up to 40 beginning/end entries; attachment summaries include up to 30 entries. Omitted evidence is explicitly identified. Redirect destinations, QR codes, and attachment contents are not fetched or inspected.
+* Corrected MIME part identifiers being reported as attachment filenames, aligned conservative rules with the core prompt, and added regression coverage.
+* Updated compatibility, privacy, downloads, and packaging. The release workflow now builds clean archives and publishes the policy asset alongside the XPI.
+
+### [v1.4.41] - Repository changes (not separately published)
+
+* Refactored background processing and introduced authentication summaries, link evidence, and beginning/end body excerpts. These changes are included in v1.4.42.
+
 
 ### [v1.4.40] - 2026-09-10 (Stable)
 

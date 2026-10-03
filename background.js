@@ -1018,7 +1018,7 @@ Output exactly one JSON object: {"isSpam":true} or {"isSpam":false}. No other ke
 5. Give greater weight to concrete security evidence than spelling, formatting, HTML quality, unfamiliarity, or ordinary promotional language.
 6. SPAM for phishing, credential theft, verification-code theft, account takeover, payment fraud, banking fraud, gift-card/cryptocurrency requests, remote-access requests, or other social engineering.
 7. SPAM for impersonation when the message deceptively claims to be a bank, payment provider, government service, employer, delivery company, cloud service, online account, security team, or other trusted organisation/person and the evidence indicates deception.
-8. SPAM for malicious or deceptive links, including visible-link/href mismatch, suspicious redirects, credential-harvesting destinations, IP-literal destinations, suspicious punycode domains, embedded credentials, or other clearly unsafe destinations.
+8. SPAM for clearly malicious or deceptive link behavior, such as credential harvesting or malware delivery. Visible/href mismatches, IP literals, punycode, redirects, and embedded credentials are supporting evidence only; do not infer malicious intent from these features alone.
 9. SPAM for malicious attachments or attachment-driven malware delivery. Consider filename, extension, MIME type, context, and requested action together.
 10. SPAM for fake invoices, receipts, subscriptions, renewals, refunds, prizes, account warnings, delivery notices, employment/investment/romance scams, casinos, and similar deceptive schemes when unsolicited or suspicious.
 11. Legitimate marketing, newsletters, unsolicited offers, and bulk mail remain HAM unless concrete malicious or deceptive evidence establishes SPAM.
