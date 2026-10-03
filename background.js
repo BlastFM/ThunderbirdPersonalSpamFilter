@@ -626,6 +626,16 @@ async function processIncomingMessages(messageList) {
         }
       }
 
+      const senderEmail = getSenderEmail(fullMessage.author);
+      if (matchesDomainPattern(senderEmail, safePatterns)) {
+        console.log('[Thunderbird OpenAI Spam Detector] Whitelisted sender: skipping AI and address validation.');
+        continue;
+      }
+      if (matchesDomainPattern(senderEmail, blockedPatterns)) {
+        await handleSpamMessage(fullMessage, 'Blacklisted Sender Pattern Match');
+        continue;
+      }
+
       // Guard against re-spamming a message the user just manually
       // restored with "Mark as Not Spam". Restoring out of the shared
       // "Local Folders / AI Filtered Spam" folder back to a different
@@ -649,7 +659,6 @@ async function processIncomingMessages(messageList) {
       }
 
       const messageBody = await messenger.messages.getFull(message.id);
-      const senderEmail = getSenderEmail(fullMessage.author);
       const replyToAddresses = getReplyToAddresses(messageBody);
       const addressValidation = collectAddressValidationResults(messageBody, fullMessage.author);
 
@@ -667,18 +676,6 @@ async function processIncomingMessages(messageList) {
           `[Thunderbird OpenAI Spam Detector] Hard address validation failure (${failure}): moving to spam.`
         );
         await handleSpamMessage(fullMessage, `Hard address validation failure: ${failure}`);
-        continue;
-      }
-
-      const isWhitelisted = matchesDomainPattern(senderEmail, safePatterns);
-
-      // Blacklist remains a deterministic SPAM rule. Whitelist is deliberately
-      // NOT a security bypass: a compromised whitelisted account, forged sender,
-      // malicious link, attachment, or impersonation attempt must still reach
-      // the classifier.
-      if (matchesDomainPattern(senderEmail, blockedPatterns)) {
-        console.log(`[Thunderbird OpenAI Spam Detector] Blacklisted pattern match (${senderEmail}): Moving to spam.`);
-        await handleSpamMessage(fullMessage, "Blacklisted Sender Pattern Match");
         continue;
       }
 
@@ -707,7 +704,7 @@ async function processIncomingMessages(messageList) {
         links: linkSummary,
         attachments: attachmentSummary,
         body: bodyExcerpt,
-        whitelisted: isWhitelisted,
+        whitelisted: false,
         addressValidation,
         apiKey,
         model: activeModel,

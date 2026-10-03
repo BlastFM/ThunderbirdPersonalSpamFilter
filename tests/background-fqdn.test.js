@@ -171,7 +171,7 @@ module.exports = {
 async function main() {
   {
     const harness = buildHarness({
-      sync: { whitelist: 'example.com', blacklist: '', targetFolder: 'trash' },
+      sync: { whitelist: '', blacklist: '', targetFolder: 'trash' },
       local: { falsePositives: [], spamLog: [] },
       messages: {
         1: {
@@ -264,7 +264,7 @@ async function main() {
     const longBody = `${'A'.repeat(1600)} MALICIOUS PAYLOAD AFTER OLD LIMIT`;
     const customPrompt = 'CUSTOM RULE: treat payload marker as SPAM';
     const harness = buildHarness({
-      sync: { whitelist: 'example.com', blacklist: '', targetFolder: 'trash', model: 'gpt-4o-mini', customPrompt: 'STALE SYNC RULE' },
+      sync: { whitelist: '', blacklist: '', targetFolder: 'trash', model: 'gpt-4o-mini', customPrompt: 'STALE SYNC RULE' },
       local: { apiKey: 'test-key', customPrompt, falsePositives: [], spamLog: [] },
       messages: {
         3: {
@@ -292,11 +292,11 @@ async function main() {
 
     await harness.api.processIncomingMessages([{ id: 3 }]);
 
-    assert.strictEqual(harness.fetchCalls.length, 1, 'valid whitelisted mail must still reach OpenAI for security analysis');
+    assert.strictEqual(harness.fetchCalls.length, 1, 'unlisted mail must reach OpenAI');
     const requestBody = JSON.parse(harness.fetchCalls[0][1].body);
     assert.ok(!requestBody.messages[0].content.includes('STALE SYNC RULE'), 'local rules must override synced rules');
     assert.match(requestBody.messages[1].content, /"validation_scope": "syntax_only"/, 'structured validation must reach the API');
-    assert.match(requestBody.messages[1].content, /Whitelisted sender pattern matched: yes/, 'whitelist status is evidence, not a bypass');
+    assert.match(requestBody.messages[1].content, /Whitelisted sender pattern matched: no/, 'whitelist status is evidence, not a bypass');
     assert.match(
       requestBody.messages[0].content,
       /CUSTOM RULE: treat payload marker as SPAM/,
@@ -336,6 +336,17 @@ async function main() {
     const excerpt = harness.api.buildBodyExcerpt('HEAD' + 'x'.repeat(8000) + 'TAIL');
     assert.ok(excerpt.startsWith('HEAD') && excerpt.endsWith('TAIL'), 'long bodies must retain head and tail');
     assert.match(excerpt, /middle omitted/, 'body truncation must be explicit');
+  }
+  for (const mode of ['whitelist', 'blacklist', 'both']) {
+    const harness = buildHarness({
+      sync: { whitelist: mode !== 'blacklist' ? 'example.com' : '', blacklist: mode !== 'whitelist' ? 'example.com' : '', targetFolder: 'trash' },
+      local: { apiKey: 'test-key', falsePositives: mode === 'blacklist' ? [{ id: 99 }] : [], spamLog: [] },
+      messages: { 99: { id: 99, author: 'trusted@example.com', subject: 'List test', folder: { id: 'inbox-folder', accountId: 'account-1' } } },
+      fullMessages: { 99: { headers: { 'reply-to': ['invalid@localhost'] }, parts: [] } }
+    });
+    await harness.api.processIncomingMessages([{ id: 99 }]);
+    assert.strictEqual(harness.fetchCalls.length, 0, mode + ' must skip AI even with a key');
+    assert.strictEqual(harness.moved.length, mode === 'blacklist' ? 1 : 0, mode + ' deterministic routing must be respected');
   }
   console.log('background-fqdn tests passed');
 }
