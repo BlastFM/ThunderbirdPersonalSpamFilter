@@ -50,7 +50,9 @@ Open the Extension Options page (`Tools > Add-ons & Themes > Options`) to config
 
 ### Conservative Classification Policy Import
 
-The recommended conservative classification policy is provided as a downloadable JSON file instead of being printed inline in this README:
+The downloadable policy now contains the Conventional Production rules (policy version 5, updated October 3, 2026). It covers malicious activity, material deception, explicitly unsolicited bulk advertising, and coherent abusive promotional campaigns. Unknown consent and weak anomalies alone remain insufficient for SPAM.
+
+The standalone release asset is updated independently of the policy bundled in an existing XPI. Download and import the file below to adopt the latest rules; upgrading the extension does not replace saved custom rules. Hard local From/Reply-To checks still apply before AI classification.
 
 [Download conservative-classification-policy.json](https://github.com/BlastFM/ThunderbirdPersonalSpamFilter/releases/latest/download/conservative-classification-policy.json)
 
