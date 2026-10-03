@@ -126,6 +126,7 @@ function buildHarness({ sync = {}, local = {}, messages = {}, fullMessages = {},
 
   const context = {
     console,
+    URL,
     messenger,
     fetch: async (...args) => {
       fetchCalls.push(args);
@@ -147,6 +148,11 @@ module.exports = {
   getReplyToAddresses,
   getAddressValidationFailure,
   isValidEmailAddress,
+  collectAddressValidationResults,
+  hasHardAddressValidationFailure,
+  extractLinkEvidence,
+  formatAttachmentSummary,
+  buildBodyExcerpt,
   processIncomingMessages
 };`;
 
@@ -215,7 +221,7 @@ async function main() {
 
     await harness.api.processIncomingMessages([{ id: 2 }]);
     assert.strictEqual(harness.moved.length, 0, 'missing Reply-To must remain optional');
-    assert.strictEqual(harness.fetchCalls.length, 0, 'whitelisted sender should still bypass OpenAI when addresses are valid');
+    assert.strictEqual(harness.fetchCalls.length, 0, 'mail without an API key cannot reach OpenAI');
     assert.deepStrictEqual(harness.storageLocal.spamLog, [], 'no spam log entry expected for valid whitelisted mail');
   }
 
@@ -258,7 +264,7 @@ async function main() {
     const longBody = `${'A'.repeat(1600)} MALICIOUS PAYLOAD AFTER OLD LIMIT`;
     const customPrompt = 'CUSTOM RULE: treat payload marker as SPAM';
     const harness = buildHarness({
-      sync: { whitelist: '', blacklist: '', targetFolder: 'trash', model: 'gpt-4o-mini' },
+      sync: { whitelist: 'example.com', blacklist: '', targetFolder: 'trash', model: 'gpt-4o-mini', customPrompt: 'STALE SYNC RULE' },
       local: { apiKey: 'test-key', customPrompt, falsePositives: [], spamLog: [] },
       messages: {
         3: {
@@ -286,8 +292,11 @@ async function main() {
 
     await harness.api.processIncomingMessages([{ id: 3 }]);
 
-    assert.strictEqual(harness.fetchCalls.length, 1, 'valid non-whitelisted mail should reach OpenAI');
+    assert.strictEqual(harness.fetchCalls.length, 1, 'valid whitelisted mail must still reach OpenAI for security analysis');
     const requestBody = JSON.parse(harness.fetchCalls[0][1].body);
+    assert.ok(!requestBody.messages[0].content.includes('STALE SYNC RULE'), 'local rules must override synced rules');
+    assert.match(requestBody.messages[1].content, /"validation_scope": "syntax_only"/, 'structured validation must reach the API');
+    assert.match(requestBody.messages[1].content, /Whitelisted sender pattern matched: yes/, 'whitelist status is evidence, not a bypass');
     assert.match(
       requestBody.messages[0].content,
       /CUSTOM RULE: treat payload marker as SPAM/,
@@ -310,6 +319,24 @@ async function main() {
     );
   }
 
+  {
+    const harness = buildHarness();
+    const validation = harness.api.collectAddressValidationResults({ headers: { sender: ['daemon@localhost'], 'return-path': ['<>'] } }, 'sender@example.com');
+    assert.strictEqual(harness.api.hasHardAddressValidationFailure(validation), false, 'Sender and Return-Path anomalies must not be unconditional spam');
+    const invalid = harness.api.collectAddressValidationResults({ headers: { 'reply-to': ['user@localhost'] } }, 'sender@example.com');
+    assert.strictEqual(harness.api.hasHardAddressValidationFailure(invalid), true, 'Reply-To hard validation remains enforced');
+    assert.strictEqual(harness.api.isValidEmailAddress('sender@example.com.'), false, 'trailing-dot mail domains are invalid');
+    const html = Array.from({ length: 45 }, (_, i) => '<a href="https://example.com/' + i + '">link</a>').join('') + '<a href="https://late.example.net/phish">https://trusted.example.com</a>';
+    const links = harness.api.extractLinkEvidence({ parts: [{ contentType: 'text/html', body: html }] }, '');
+    assert.match(links, /late.example.net/, 'tail links must remain visible after the cap');
+    assert.match(links, /additional link entries omitted/, 'link truncation must be explicit');
+    const attachments = harness.api.formatAttachmentSummary({ parts: [{ contentType: 'text/plain', partName: '1', body: 'hello' }, ...Array.from({ length: 31 }, (_, i) => ({ contentType: 'application/pdf', name: 'file' + i + '.pdf' }))] });
+    assert.ok(!attachments.includes('- 1 ('), 'MIME part identifiers are not attachment filenames');
+    assert.match(attachments, /1 additional attachments omitted/, 'attachment truncation must be explicit');
+    const excerpt = harness.api.buildBodyExcerpt('HEAD' + 'x'.repeat(8000) + 'TAIL');
+    assert.ok(excerpt.startsWith('HEAD') && excerpt.endsWith('TAIL'), 'long bodies must retain head and tail');
+    assert.match(excerpt, /middle omitted/, 'body truncation must be explicit');
+  }
   console.log('background-fqdn tests passed');
 }
 
