@@ -36,10 +36,15 @@ function selectStorageValues(store, query) {
   return {};
 }
 
-function buildHarness({ sync = {}, local = {}, messages = {}, fullMessages = {}, accountFolders = [] } = {}) {
+function buildHarness({ sync = {}, local = {}, messages = {}, fullMessages = {}, accountFolders = [], messagePages = {} } = {}) {
   const moved = [];
   const notifications = [];
   const fetchCalls = [];
+  const deletedMessages = [];
+  const menuItems = [];
+  const menuUpdates = [];
+  let menuClickHandler;
+  let menuShownHandler;
   const storageSync = { ...sync };
   const storageLocal = { ...local };
 
@@ -60,9 +65,12 @@ function buildHarness({ sync = {}, local = {}, messages = {}, fullMessages = {},
 
   const messenger = {
     menus: {
-      removeAll: async () => {},
-      create: () => {},
-      onClicked: { addListener: () => {} }
+      removeAll: async () => { menuItems.length = 0; },
+      create: (item) => { menuItems.push(clone(item)); },
+      update: async (id, properties) => { menuUpdates.push({ id, properties: clone(properties) }); },
+      refresh: async () => {},
+      onClicked: { addListener: (handler) => { menuClickHandler = handler; } },
+      onShown: { addListener: (handler) => { menuShownHandler = handler; } }
     },
     runtime: {
       onInstalled: { addListener: () => {} },
@@ -104,8 +112,10 @@ function buildHarness({ sync = {}, local = {}, messages = {}, fullMessages = {},
         moved.push({ ids: clone(ids), destinationFolderId });
       },
       query: async () => ({ messages: [] }),
+      list: async (folderId) => clone(messagePages[folderId] || { messages: [] }),
+      continueList: async (pageId) => clone(messagePages[pageId] || null),
       copy: async () => {},
-      delete: async () => {}
+      delete: async (ids, permanently) => { deletedMessages.push({ ids: clone(ids), permanently }); }
     },
     accounts: {
       get: async () => clone(account),
@@ -153,7 +163,9 @@ module.exports = {
   extractLinkEvidence,
   formatAttachmentSummary,
   buildBodyExcerpt,
-  processIncomingMessages
+  processIncomingMessages,
+  emptyAISpamFolder,
+  setupContextMenus
 };`;
 
   vm.runInNewContext(instrumentedSource, context, { filename: 'background.js' });
@@ -163,6 +175,11 @@ module.exports = {
     moved,
     notifications,
     fetchCalls,
+    deletedMessages,
+    menuItems,
+    menuUpdates,
+    menuClickHandler: (...args) => menuClickHandler(...args),
+    menuShownHandler: (...args) => menuShownHandler(...args),
     storageLocal,
     storageSync
   };
@@ -347,6 +364,37 @@ async function main() {
     await harness.api.processIncomingMessages([{ id: 99 }]);
     assert.strictEqual(harness.fetchCalls.length, 0, mode + ' must skip AI even with a key');
     assert.strictEqual(harness.moved.length, mode === 'blacklist' ? 1 : 0, mode + ' deterministic routing must be respected');
+  }
+  {
+    const harness = buildHarness({
+      accountFolders: [{ id: 'ai-spam-folder', name: 'AI Filtered Spam', accountId: 'account-1', subFolders: [] }],
+      messagePages: {
+        'ai-spam-folder': { id: 'first-page', messages: [{ id: 1 }, { id: 2 }] },
+        'first-page': { id: 'second-page', messages: [{ id: 3 }] },
+        'second-page': { messages: [{ id: 4 }] }
+      }
+    });
+    const count = await harness.api.emptyAISpamFolder({ id: 'ai-spam-folder', name: 'AI Filtered Spam', accountId: 'account-1' });
+    assert.strictEqual(count, 4, 'empty action must collect all pages before deleting');
+    assert.deepStrictEqual(harness.deletedMessages, [
+      { ids: [1, 2, 3, 4], permanently: true }
+    ], 'empty action permanently deletes only messages from the target spam folder');
+    await assert.rejects(
+      () => harness.api.emptyAISpamFolder({ id: 'inbox-folder', name: 'Inbox', accountId: 'account-1' }),
+      /Select the AI Filtered Spam folder/,
+      'empty action must reject unrelated folders'
+    );
+  }
+  {
+    const harness = buildHarness();
+    await harness.api.setupContextMenus();
+    const emptyItem = harness.menuItems.find(item => item.id === 'empty-ai-filtered-spam');
+    assert.ok(emptyItem, 'folder-pane empty action should be registered');
+    assert.deepStrictEqual(Array.from(emptyItem.contexts), ['folder_pane'], 'empty action belongs in the folder pane context menu');
+    await harness.menuShownHandler({ selectedFolders: [{ name: 'AI Filtered Spam' }] });
+    assert.strictEqual(harness.menuUpdates[harness.menuUpdates.length - 1].properties.visible, true, 'empty action should show for AI Filtered Spam');
+    await harness.menuShownHandler({ selectedFolders: [{ name: 'Inbox' }] });
+    assert.strictEqual(harness.menuUpdates[harness.menuUpdates.length - 1].properties.visible, false, 'empty action should be hidden for other folders');
   }
   console.log('background-fqdn tests passed');
 }

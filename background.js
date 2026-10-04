@@ -42,7 +42,7 @@ async function moveMessageTracked(messageId, destinationFolder) {
 }
 
 function setupContextMenus() {
-  messenger.menus.removeAll().then(() => {
+  return messenger.menus.removeAll().then(() => {
     messenger.menus.create({
       id: "mark-as-spam",
       title: "Mark as Spam (Train AI)",
@@ -51,6 +51,13 @@ function setupContextMenus() {
         "16": "icons/spam-red.png",
         "32": "icons/spam-red.png"
       }
+    });
+
+    messenger.menus.create({
+      id: "empty-ai-filtered-spam",
+      title: "Empty AI Filtered Spam",
+      contexts: ["folder_pane"],
+      visible: false
     });
 
     messenger.menus.create({
@@ -64,6 +71,17 @@ function setupContextMenus() {
     });
   }).catch(err => console.error("[Thunderbird OpenAI Spam Detector] Context Menu error:", err));
 }
+
+messenger.menus.onShown.addListener(async info => {
+  const selectedFolders = info.selectedFolders || [];
+  const showEmptyAction = selectedFolders.length === 1 && selectedFolders[0].name === "AI Filtered Spam";
+  try {
+    await messenger.menus.update("empty-ai-filtered-spam", { visible: showEmptyAction });
+    await messenger.menus.refresh();
+  } catch (err) {
+    console.error("[Thunderbird OpenAI Spam Detector] Could not update folder context menu:", err);
+  }
+});
 
 // One-time migration: the API key used to live in storage.sync, which
 // syncs to every Thunderbird profile signed into the same account. Move
@@ -121,6 +139,23 @@ async function notifyActionFailure(title, err) {
 }
 
 messenger.menus.onClicked.addListener(async (info, tab) => {
+  if (info.menuItemId === "empty-ai-filtered-spam") {
+    try {
+      const folder = info.selectedFolders && info.selectedFolders[0];
+      const deletedCount = await emptyAISpamFolder(folder);
+      await messenger.notifications.create({
+        type: "basic",
+        iconUrl: "icons/icon-128.png",
+        title: "AI Filtered Spam Emptied",
+        message: deletedCount ? "Permanently deleted " + deletedCount + " message(s)." : "The folder was already empty."
+      });
+    } catch (err) {
+      console.error("[Thunderbird OpenAI Spam Detector] Could not empty AI Filtered Spam:", err);
+      await notifyActionFailure("Spam Detector: Empty Folder Failed", err);
+    }
+    return;
+  }
+
   const selectedMessages = info.selectedMessages && info.selectedMessages.messages;
   if (!selectedMessages || selectedMessages.length === 0) {
     console.warn("[Thunderbird OpenAI Spam Detector] No message was selected for the context-menu action.");
@@ -1581,6 +1616,30 @@ async function getOrCreateAISpamFolder(fallbackAccountId) {
     console.error("[Thunderbird OpenAI Spam Detector] Could not find or create the AI Filtered Spam folder:", err);
     return null;
   }
+}
+
+async function emptyAISpamFolder(folder) {
+  if (!folder || folder.name !== "AI Filtered Spam" || !folder.id || !folder.accountId) {
+    throw new Error("Select the AI Filtered Spam folder before choosing this action.");
+  }
+
+  const actualFolder = await messenger.folders.get(folder.id);
+  if (!actualFolder || actualFolder.name !== "AI Filtered Spam" || actualFolder.accountId !== folder.accountId) {
+    throw new Error("The selected folder is no longer the AI Filtered Spam folder.");
+  }
+
+  const messageIds = [];
+  let page = await messenger.messages.list(actualFolder.id);
+  while (page) {
+    for (const message of page.messages || []) messageIds.push(message.id);
+    if (!page.id) break;
+    page = await messenger.messages.continueList(page.id);
+  }
+
+  for (let index = 0; index < messageIds.length; index += 100) {
+    await messenger.messages.delete(messageIds.slice(index, index + 100), true);
+  }
+  return messageIds.length;
 }
 
 function findFolderByName(folders, folderName) {

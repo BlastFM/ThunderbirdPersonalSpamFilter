@@ -1,6 +1,6 @@
 # OpenAI Spam Detector for Thunderbird
 
-![Extension Version](https://img.shields.io/badge/version-1.4.44-blue.svg)
+![Extension Version](https://img.shields.io/badge/version-1.4.45-blue.svg)
 ![Thunderbird](https://img.shields.io/badge/Thunderbird-128.0%2B-58A6FF.svg?logo=thunderbird&logoColor=white)
 ![Manifest Version](https://img.shields.io/badge/manifest-v3-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-brightgreen.svg)
@@ -15,7 +15,7 @@ Release Date: October 3, 2026
 
 Compatibility: Thunderbird 128.0+ (Manifest V3)
 
-**v1.4.44 is the current stable release**, verified to automatically scan and correctly route new messages (including those arriving in the Junk folder) and to restore manual "Mark as Spam (Train AI)" / "Mark as Not Spam" actions on current Thunderbird MV3 builds. It also feeds the Detected Spam Log back into future AI classification, alongside the existing AI Training Memory (Not Spam) examples.
+**v1.4.45 is the current stable release**, verified to automatically scan and correctly route new messages (including those arriving in the Junk folder) and to restore manual "Mark as Spam (Train AI)" / "Mark as Not Spam" actions on current Thunderbird MV3 builds. It also feeds the Detected Spam Log back into future AI classification, alongside the existing AI Training Memory (Not Spam) examples.
 
 This release sends structured address checks, HTML link destinations, authentication summaries, and beginning/end body excerpts to OpenAI. Domain Whitelist matches are always kept untouched and skip AI and address validation. Domain Blacklist matches route to spam without AI, overriding prior not-spam memory. Whitelist wins if both lists match. The hard From/Reply-To validation and local storage for custom rules remain in place.
 
@@ -34,7 +34,7 @@ Full backup and restore controls are provided in the Detected Spam Log panel. A 
 The options page now provides clearer progress, validation, success, and error messages for settings, OpenAI connection tests, spam logs, AI training memory, and backup actions. All of these messages use the dynamic header status indicator rather than a separate floating confirmation. Status and error announcements use accessible live-region behavior for assistive technology.
 
 🔍 Checksum (Integrity Verification)  
-Filename: openai-spam-detector-v1.4.44.xpi
+Filename: openai-spam-detector-v1.4.45.xpi
 ### SHA-256: See the GitHub release asset digest for the current package.
 
 ### Configuration Options
@@ -61,7 +61,7 @@ To use it, download the file, open the extension Options page, click **Import ba
 To keep AI-detected spam isolated from server-synced folders:
 1. Open Extension Settings and set **Spam Action Destination** to `Local Folders / AI Filtered Spam`.
 2. When the AI detects a spam email, it automatically creates and routes the message to `Local Folders > AI Filtered Spam` inside Thunderbird.
-3. You can set a custom local retention policy on this folder (e.g., auto-delete after 14 days) by right-clicking the folder in Thunderbird and selecting **Properties > Retention Policy**.
+3. Thunderbird exposes this as a regular Local Folders folder, not a native Junk special-use folder. Its supported extension API does not allow the add-on to assign Thunderbird's Junk flag/icon or native **Empty Spam** command. To empty it, right-click the folder and choose the add-on action **Empty AI Filtered Spam**; this permanently deletes all messages in that folder. You can set a local retention policy via **Properties > Retention Policy**.
 
 ## 🌟 Key Features
 
@@ -113,22 +113,22 @@ Restore success is reported only after storage writes and the log refresh comple
 
 Install [Mozilla Thunderbird](https://www.thunderbird.net/) first, then install the OpenAI Spam Detector extension from the release asset below.
 
-[![Download Release](https://img.shields.io/badge/Download-v1.4.44_.XPI-blue?style=for-the-badge&logo=thunderbird&logoColor=white)](https://github.com/BlastFM/ThunderbirdPersonalSpamFilter/releases/download/v1.4.44/openai-spam-detector-v1.4.44.xpi)
+[![Download Release](https://img.shields.io/badge/Download-v1.4.45_.XPI-blue?style=for-the-badge&logo=thunderbird&logoColor=white)](https://github.com/BlastFM/ThunderbirdPersonalSpamFilter/releases/download/v1.4.45/openai-spam-detector-v1.4.45.xpi)
 [![Get Latest Release](https://img.shields.io/github/v/release/BlastFM/ThunderbirdPersonalSpamFilter?color=green&label=Latest%20Release&style=for-the-badge)](https://github.com/BlastFM/ThunderbirdPersonalSpamFilter/releases/latest)
 
 ### Direct Downloads
 
 | Asset | Description | Download Link |
 | :--- | :--- | :--- |
-| **Extension Binary** | Ready-to-install Thunderbird Add-on | [`openai-spam-detector-v1.4.44.xpi`](https://github.com/BlastFM/ThunderbirdPersonalSpamFilter/releases/download/v1.4.44/openai-spam-detector-v1.4.44.xpi) |
-| **Source Code** | Compressed source files (`.zip`) | [`Source code (zip)`](https://github.com/BlastFM/ThunderbirdPersonalSpamFilter/archive/refs/tags/v1.4.44.zip) |
+| **Extension Binary** | Ready-to-install Thunderbird Add-on | [`openai-spam-detector-v1.4.45.xpi`](https://github.com/BlastFM/ThunderbirdPersonalSpamFilter/releases/download/v1.4.45/openai-spam-detector-v1.4.45.xpi) |
+| **Source Code** | Compressed source files (`.zip`) | [`Source code (zip)`](https://github.com/BlastFM/ThunderbirdPersonalSpamFilter/archive/refs/tags/v1.4.45.zip) |
 
 ---
 
 ### How to Install in Thunderbird
 
 1. Download and install [Mozilla Thunderbird](https://www.thunderbird.net/) if it is not already installed.
-2. Click the extension download button above to save **`openai-spam-detector-v1.4.44.xpi`**.
+2. Click the extension download button above to save **`openai-spam-detector-v1.4.45.xpi`**.
 3. Open Thunderbird and navigate to **Add-ons and Themes** (`Ctrl+Shift+A` or `Cmd+Shift+A`).
 4. Click the gear icon (**Tools for all add-ons**) in the top-right corner.
 5. Select **Install Add-on From File...** and choose the downloaded `.xpi` file.
@@ -152,7 +152,7 @@ ThunderbirdPersonalSpamFilter/
 │   ├── options-page-current.png
 │   └── options-page-populated.png
 ├── README.md
-├── openai-spam-detector-v1.4.44.xpi
+├── openai-spam-detector-v1.4.45.xpi
 ├── icons/
 │   ├── icon-16.png
 │   ├── icon-32.png
@@ -263,6 +263,12 @@ Host Permission (https://api.openai.com/*): Required to transmit snippet data to
 Privacy Note: Transmitted email content includes selected message headers, sender and reply-to addresses, subject line, attachment metadata, and up to 6,000 body characters (the first 4,000 and last 2,000 for longer messages), extracted HTML link text/destinations, structured address checks, authentication summaries, and whitelist-match status. Data is processed according to OpenAI's Data Usage Policies. No data is sent to intermediate third-party servers.
 
 ## Release History
+
+### [v1.4.45] - 2026-10-04 (Stable)
+
+* Added an add-on folder-pane context action, **Empty AI Filtered Spam**, shown when right-clicking the AI Filtered Spam folder. It permanently empties that folder in paginated batches and reports success/failure.
+* Thunderbird?s supported extension APIs do not allow assigning the Junk special-use flag to a custom folder, so the native spam icon and native **Empty Spam** command are unavailable for this local folder. The README now explains this limitation and the add-on action.
+
 
 ### [v1.4.44] - 2026-10-03 (Stable)
 
